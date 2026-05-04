@@ -1,0 +1,4 @@
+.cargo
+.pnpm-store
+node_modules
+target
