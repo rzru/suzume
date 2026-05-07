@@ -1,7 +1,7 @@
 import { Badge, Flex, Heading, ScrollArea, Separator, Text } from "@radix-ui/themes";
 import { LayersIcon } from "@radix-ui/react-icons";
-import type { DeckNode } from "../api/decksTree";
-import DeckTree from "./DeckTree";
+import type { DeckNode } from "../../api/decksTree";
+import { DeckTree } from "../deck-tree";
 import styles from "./DecksSidebar.module.css";
 
 type DecksSidebarProps = {
@@ -16,7 +16,7 @@ function countDecks(nodes: DeckNode[]): number {
   return total;
 }
 
-export default function DecksSidebar({ decks }: DecksSidebarProps) {
+export function DecksSidebar({ decks }: DecksSidebarProps) {
   const totalDecks = countDecks(decks);
 
   return (

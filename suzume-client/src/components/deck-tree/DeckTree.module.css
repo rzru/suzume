@@ -1,15 +1,4 @@
-:root {
-  color-scheme: dark;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-}
-
-.deck-link {
+.link {
   display: flex;
   align-items: flex-start;
   gap: 6px;
@@ -23,31 +12,31 @@ body,
     color 80ms ease;
 }
 
-.deck-link__name {
-  min-width: 0;
-  overflow-wrap: break-word;
-}
-
-.deck-link:hover {
+.link:hover {
   background-color: var(--accent-a3);
 }
 
-.deck-link--active {
+.linkActive {
   background-color: var(--accent-a5);
   color: var(--accent-12);
 }
 
-.deck-link__chevron {
+.name {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.chevron {
   color: var(--gray-9);
   flex-shrink: 0;
   margin-top: 3px;
 }
 
-.deck-link--active .deck-link__chevron {
+.linkActive .chevron {
   color: var(--accent-11);
 }
 
-.deck-link__leaf-dot {
+.leafDot {
   width: 4px;
   height: 4px;
   border-radius: 999px;
@@ -56,11 +45,11 @@ body,
   flex-shrink: 0;
 }
 
-.deck-link--active .deck-link__leaf-dot {
+.linkActive .leafDot {
   background-color: var(--accent-11);
 }
 
-.deck-children {
+.children {
   margin-left: 12px;
   padding-left: 8px;
   border-left: 1px solid var(--gray-a4);

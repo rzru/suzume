@@ -31,6 +31,7 @@ struct Config {
     suzume_server_host: IpAddr,
     suzume_server_port: u16,
     suzume_health_timeout_ms: u64,
+    suzume_anki_timeout_ms: u64,
     suzume_allowed_origins: Vec<String>,
     ollama_base_url: String,
     anki_connect_url: String,
@@ -42,6 +43,7 @@ impl Default for Config {
             suzume_server_host: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
             suzume_server_port: 18080,
             suzume_health_timeout_ms: 2_000,
+            suzume_anki_timeout_ms: 30_000,
             suzume_allowed_origins: vec![
                 "http://localhost:5173".into(),
                 "http://127.0.0.1:5173".into(),
@@ -63,8 +65,14 @@ async fn main() {
         .build()
         .expect("failed to create HTTP client");
 
+    let anki_http_client = Client::builder()
+        .timeout(Duration::from_millis(cfg.suzume_anki_timeout_ms))
+        .build()
+        .expect("failed to create Anki HTTP client");
+
     let state = AppState {
         http_client,
+        anki_http_client,
         ollama_base_url: cfg.ollama_base_url,
         anki_connect_url: cfg.anki_connect_url,
     };

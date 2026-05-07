@@ -1,0 +1,47 @@
+---
+description: Use named exports only in suzume-client; no default exports
+globs: suzume-client/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Named Exports Only
+
+Suzume-client must not use `export default`. Every value, type, and component is exported by name. This keeps imports stable across renames, avoids "rename on import" drift, and lets editors flag unused exports reliably.
+
+## Rules
+
+- No `export default` anywhere in `suzume-client/**`.
+- No anonymous default-exported components/functions.
+- Barrel `index.ts` files re-export by name: `export { Foo } from "./Foo"`.
+- Importers always use the braced form: `import { Foo } from "..."`.
+
+## Allowed
+
+- `import styles from "./X.module.css"` — CSS Modules expose the styles record as the module's default; this is a virtual module from the bundler, not source code, so it's exempt.
+
+## Examples
+
+```tsx
+// BAD
+export default function PracticeModePicker(props: Props) { ... }
+import PracticeModePicker from "../components/practice-mode-picker";
+
+// GOOD
+export function PracticeModePicker(props: Props) { ... }
+import { PracticeModePicker } from "../components/practice-mode-picker";
+```
+
+```ts
+// BAD — barrel
+export { default } from "./PracticeModePicker";
+
+// GOOD — barrel
+export { PracticeModePicker } from "./PracticeModePicker";
+```
+
+## Refactor checklist
+
+- Replace `export default function Name(...)` with `export function Name(...)`.
+- Replace trailing `export default Name;` with a named export at the declaration site.
+- Update all importers from `import Name from "..."` to `import { Name } from "..."`.
+- Update barrel files to re-export by name.

@@ -1,8 +1,14 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anki_bridge::prelude::*;
-use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
-use serde::Serialize;
+use axum::{
+    Json, Router,
+    extract::{Query, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 
@@ -30,8 +36,21 @@ struct DeckTreeBuilder {
     children: BTreeMap<String, DeckTreeBuilder>,
 }
 
+#[derive(Deserialize)]
+struct DeckCountsParams {
+    name: String,
+}
+
+#[derive(Serialize)]
+struct DeckCountsResponse {
+    today: usize,
+    all: usize,
+}
+
 pub fn router() -> Router<AppState> {
-    Router::new().route("/anki/decks-tree", get(get_anki_decks_tree))
+    Router::new()
+        .route("/anki/decks", get(get_anki_decks_tree))
+        .route("/anki/decks/counts", get(get_anki_deck_counts))
 }
 
 async fn get_anki_decks_tree(State(state): State<AppState>) -> impl IntoResponse {
@@ -58,7 +77,55 @@ async fn get_anki_decks_tree(State(state): State<AppState>) -> impl IntoResponse
     }
 }
 
-fn build_deck_tree(deck_names_and_ids: std::collections::HashMap<String, DeckId>) -> Vec<DeckNode> {
+async fn get_anki_deck_counts(
+    State(state): State<AppState>,
+    Query(params): Query<DeckCountsParams>,
+) -> impl IntoResponse {
+    let anki = AnkiClient {
+        endpoint: &state.anki_connect_url,
+        client: state.anki_http_client.clone(),
+    };
+
+    let escaped_name = params.name.replace('"', "\\\"");
+    let rated_today_fut = anki.request(FindCardsRequest {
+        query: format!("deck:\"{}\" rated:1", escaped_name),
+    });
+    let ever_reviewed_fut = anki.request(FindCardsRequest {
+        query: format!("deck:\"{}\" prop:reps>0", escaped_name),
+    });
+
+    let (rated_today, ever_reviewed) = tokio::join!(rated_today_fut, ever_reviewed_fut);
+
+    let rated_today = match rated_today {
+        Ok(value) => value,
+        Err(error) => return anki_error(error),
+    };
+    let ever_reviewed = match ever_reviewed {
+        Ok(value) => value,
+        Err(error) => return anki_error(error),
+    };
+
+    (
+        StatusCode::OK,
+        Json(DeckCountsResponse {
+            today: rated_today.len(),
+            all: ever_reviewed.len(),
+        }),
+    )
+        .into_response()
+}
+
+fn anki_error(error: anki_bridge::Error) -> axum::response::Response {
+    (
+        StatusCode::BAD_GATEWAY,
+        Json(ErrorResponse {
+            error: error.to_string(),
+        }),
+    )
+        .into_response()
+}
+
+fn build_deck_tree(deck_names_and_ids: HashMap<String, DeckId>) -> Vec<DeckNode> {
     let mut entries: Vec<(String, DeckId)> = deck_names_and_ids.into_iter().collect();
     entries.sort_by(|a, b| a.0.cmp(&b.0));
 

@@ -1,13 +1,13 @@
 import { Callout } from "@radix-ui/themes";
 import { ExclamationTriangleIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import { useParams } from "react-router-dom";
-import AppShell from "../components/AppShell";
-import DecksSidebar from "../components/DecksSidebar";
-import PracticeModePicker from "../components/PracticeModePicker";
+import { AppShell } from "../components/app-shell";
+import { DecksSidebar } from "../components/decks-sidebar";
+import { PracticeModePicker } from "../components/practice-mode-picker";
 import { findDeckById } from "../utils/decks";
 import { useDecksTreeQuery } from "../hooks/useDecksTreeQuery";
 
-export default function DecksPage() {
+export function DecksPage() {
   const { data } = useDecksTreeQuery();
 
   return (

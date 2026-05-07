@@ -8,7 +8,7 @@ type AppShellProps = {
   children: ReactNode;
 };
 
-export default function AppShell({ sidebar, header, children }: AppShellProps) {
+export function AppShell({ sidebar, header, children }: AppShellProps) {
   return (
     <Flex height="100vh" width="100%" overflow="hidden">
       <Box width="320px" p="3" flexShrink="0" className={styles.sidebar}>

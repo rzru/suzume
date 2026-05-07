@@ -1,0 +1,10 @@
+.scopeButton {
+  cursor: pointer;
+  height: auto;
+  min-height: var(--space-7);
+  padding: var(--space-2) var(--space-3);
+}
+
+.scopeButton:disabled {
+  cursor: not-allowed;
+}

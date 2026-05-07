@@ -42,7 +42,7 @@ function ServiceRow({ service }: { service: Service }) {
   );
 }
 
-export default function StatusPage() {
+export function StatusPage() {
   const { error, data: status, dataUpdatedAt } = useHealthQuery();
 
   const services: Service[] = [

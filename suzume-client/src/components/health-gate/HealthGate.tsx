@@ -1,7 +1,7 @@
 import { Flex, Spinner, Text } from "@radix-ui/themes";
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useHealthQuery } from "../hooks/useHealthQuery";
+import { useHealthQuery } from "../../hooks/useHealthQuery";
 
 const STATUS_ROUTE = "/status";
 
@@ -9,12 +9,13 @@ type HealthGateProps = {
   children: ReactNode;
 };
 
-export default function HealthGate({ children }: HealthGateProps) {
-  const healthQuery = useHealthQuery();
+export function HealthGate({ children }: HealthGateProps) {
   const location = useLocation();
+  const { isPending, data: status } = useHealthQuery();
+
   const onStatusPage = location.pathname === STATUS_ROUTE;
 
-  if (healthQuery.isPending) {
+  if (isPending) {
     return (
       <Flex height="100vh" align="center" justify="center" gap="2">
         <Spinner size="3" />
@@ -23,10 +24,7 @@ export default function HealthGate({ children }: HealthGateProps) {
     );
   }
 
-  const isHealthy =
-    !healthQuery.isError &&
-    healthQuery.data?.ollama_connected === true &&
-    healthQuery.data?.anki_connected === true;
+  const isHealthy = status?.ollama_connected === true && status?.anki_connected === true;
 
   if (!isHealthy && !onStatusPage) {
     return <Navigate to={STATUS_ROUTE} replace />;

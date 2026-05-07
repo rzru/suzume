@@ -32,11 +32,3 @@
 .modeCardActive:hover {
   background-color: var(--accent-a4);
 }
-
-.levelButton {
-  cursor: pointer;
-}
-
-.levelButton:disabled {
-  cursor: not-allowed;
-}

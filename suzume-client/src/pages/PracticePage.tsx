@@ -1,13 +1,18 @@
 import { Badge, Box, Callout, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { ExclamationTriangleIcon, StackIcon } from "@radix-ui/react-icons";
 import { Navigate, useParams } from "react-router-dom";
-import AppShell from "../components/AppShell";
-import DecksSidebar from "../components/DecksSidebar";
-import { isPracticeMode, isProficiencyLevel } from "../utils/practice";
+import { AppShell } from "../components/app-shell";
+import { DecksSidebar } from "../components/decks-sidebar";
+import { isCardScope, isPracticeMode, isProficiencyLevel } from "../utils/practice";
 import { findDeckById } from "../utils/decks";
 import { useDecksTreeQuery } from "../hooks/useDecksTreeQuery";
 
-export default function PracticePage() {
+const SCOPE_LABELS = {
+  today: "Reviewed today",
+  all: "All known",
+} as const;
+
+export function PracticePage() {
   const { data } = useDecksTreeQuery();
 
   return (
@@ -18,7 +23,7 @@ export default function PracticePage() {
 }
 
 const PracticePageInner = () => {
-  const params = useParams<{ deckId: string; mode: string; level: string }>();
+  const params = useParams<{ deckId: string; mode: string; level: string; scope: string }>();
   const { isPending, error, data } = useDecksTreeQuery();
 
   if (isPending) {
@@ -36,9 +41,9 @@ const PracticePageInner = () => {
     );
   }
 
-  const { deckId, mode, level } = params;
+  const { deckId, mode, level, scope } = params;
 
-  if (!deckId || !isPracticeMode(mode) || !isProficiencyLevel(level)) {
+  if (!deckId || !isPracticeMode(mode) || !isProficiencyLevel(level) || !isCardScope(scope)) {
     return <Navigate to={deckId ? `/decks/${deckId}` : "/"} replace />;
   }
 
@@ -58,6 +63,7 @@ const PracticePageInner = () => {
 
   const breadcrumb = lookup.parents.length > 0 ? lookup.parents.join(" / ") : "Top-level deck";
   const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
+  const scopeLabel = SCOPE_LABELS[scope];
 
   return (
     <Flex direction="column" gap="5">
@@ -79,6 +85,9 @@ const PracticePageInner = () => {
             </Badge>
             <Badge color="gray" variant="soft">
               {level.toUpperCase()}
+            </Badge>
+            <Badge color="grass" variant="soft">
+              {scopeLabel}
             </Badge>
           </Flex>
           <Text size="3" weight="medium">

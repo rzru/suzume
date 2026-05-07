@@ -11,7 +11,7 @@ export type DeckTreeResponse = {
   decks: DeckNode[];
 };
 
-const getDecksTreeUrl = (): string => buildApiUrl("/anki/decks-tree");
+const getDecksTreeUrl = (): string => buildApiUrl("/anki/decks");
 
 export async function fetchDecksTree(): Promise<DeckTreeResponse> {
   return fetchJson<DeckTreeResponse>(getDecksTreeUrl(), "Decks tree");
