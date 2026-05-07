@@ -29,11 +29,8 @@ Standalone LAN-accessible web app stack using:
    - `docker compose up -d --build`
 4. Open on LAN:
    - client: `http://<nas-ip>:4173`
-   - health: `http://<nas-ip>:18080/health`
-   - status: `http://<nas-ip>:18080/status`
 
 ## Configuration
-
 Set environment variables via shell or `.env` next to `docker-compose.yml`.
 
 - `SUZUME_SERVER_BIND_IP` default `0.0.0.0`

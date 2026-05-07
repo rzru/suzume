@@ -7,8 +7,8 @@ use std::{
 };
 
 use axum::{
-    http::{HeaderName, HeaderValue, Method},
     Router,
+    http::{HeaderName, HeaderValue, Method},
 };
 use reqwest::Client;
 use tower_http::{
@@ -17,7 +17,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 use tracing::{error, info};
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 const DEFAULT_SERVER_HOST: &str = "0.0.0.0";
 const DEFAULT_SERVER_PORT: u16 = 18080;
@@ -25,13 +25,15 @@ const DEFAULT_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434";
 const DEFAULT_ANKI_CONNECT_URL: &str = "http://127.0.0.1:8765";
 const DEFAULT_ALLOWED_ORIGINS: &str = "http://localhost:5173,http://127.0.0.1:5173";
 const DEFAULT_CHECK_TIMEOUT_MS: u64 = 2_000;
+
 const X_REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
 
 #[tokio::main]
 async fn main() {
     init_tracing();
 
-    let check_timeout = read_u64_env("SUZUME_HEALTH_TIMEOUT_MS").unwrap_or(DEFAULT_CHECK_TIMEOUT_MS);
+    let check_timeout =
+        read_u64_env("SUZUME_HEALTH_TIMEOUT_MS").unwrap_or(DEFAULT_CHECK_TIMEOUT_MS);
     let http_client = Client::builder()
         .timeout(Duration::from_millis(check_timeout))
         .build()
@@ -90,8 +92,8 @@ fn build_cors_layer() -> CorsLayer {
 }
 
 fn init_tracing() {
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,tower_http=info"));
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,tower_http=info"));
     fmt().json().with_env_filter(filter).init();
 }
 
@@ -107,9 +109,13 @@ fn read_ip_env(key: &str, default_value: &str) -> IpAddr {
 }
 
 fn read_u16_env(key: &str) -> Option<u16> {
-    std::env::var(key).ok().and_then(|value| value.parse::<u16>().ok())
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
 }
 
 fn read_u64_env(key: &str) -> Option<u64> {
-    std::env::var(key).ok().and_then(|value| value.parse::<u64>().ok())
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
 }

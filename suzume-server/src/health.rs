@@ -1,10 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-    Json, Router,
-};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -38,11 +32,7 @@ struct AnkiVersionResponse {
 }
 
 impl HealthState {
-    pub fn new(
-        http_client: Client,
-        ollama_base_url: String,
-        anki_connect_url: String,
-    ) -> Self {
+    pub fn new(http_client: Client, ollama_base_url: String, anki_connect_url: String) -> Self {
         Self {
             http_client,
             ollama_base_url,
@@ -92,6 +82,7 @@ async fn check_anki(client: &Client, endpoint: &str) -> bool {
             if !response.status().is_success() {
                 return false;
             }
+
             match response.json::<AnkiVersionResponse>().await {
                 Ok(body) => body.error.is_none(),
                 Err(_) => false,
@@ -100,4 +91,3 @@ async fn check_anki(client: &Client, endpoint: &str) -> bool {
         Err(_) => false,
     }
 }
-
