@@ -1,0 +1,31 @@
+---
+description: Use declarative navigation (Link / NavLink / Navigate) in suzume-client; avoid useNavigate
+globs: suzume-client/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Declarative Navigation
+
+Suzume-client must keep all routing changes declarative. Do not call `useNavigate()` or any function that imperatively pushes/replaces history. Use react-router's components instead.
+
+## Allowed
+
+- `<Link to="...">` for in-app links.
+- `<NavLink to="...">` for links that need active state.
+- `<Navigate to="..." replace />` for redirects (unauthorized, invalid params, etc.) returned from a render path.
+
+## Wrapping styled components
+
+When a Radix Themes component (e.g. `Button`) needs to navigate, use `asChild` and put a router `Link` inside:
+
+```tsx
+<Button asChild size="3" variant="surface">
+  <Link to={`/decks/${deckId}/${mode}/${level}`}>{level.toUpperCase()}</Link>
+</Button>
+```
+
+## Anti-patterns
+
+- Do not call `navigate(...)` inside `onClick`, effects, or event handlers.
+- Do not render `<a href="#">` with `preventDefault` to fake a button. If the action only changes local state, use `<Button variant="ghost">`.
+- Do not import `useNavigate` from `react-router-dom`.

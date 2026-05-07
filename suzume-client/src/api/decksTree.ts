@@ -3,6 +3,7 @@ import { fetchJson } from "./fetchJson";
 
 export type DeckNode = {
   name: string;
+  id?: number;
   children: DeckNode[];
 };
 

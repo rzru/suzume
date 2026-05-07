@@ -19,11 +19,14 @@ struct DeckTreeResponse {
 #[derive(Serialize)]
 struct DeckNode {
     name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<i64>,
     children: Vec<DeckNode>,
 }
 
 #[derive(Default)]
 struct DeckTreeBuilder {
+    id: Option<i64>,
     children: BTreeMap<String, DeckTreeBuilder>,
 }
 
@@ -37,11 +40,11 @@ async fn get_anki_decks_tree(State(state): State<AppState>) -> impl IntoResponse
         client: state.http_client.clone(),
     };
 
-    match anki.request(DeckNamesRequest).await {
-        Ok(deck_names) => (
+    match anki.request(DeckNamesAndIdsRequest).await {
+        Ok(deck_names_and_ids) => (
             StatusCode::OK,
             Json(DeckTreeResponse {
-                decks: build_deck_tree(deck_names),
+                decks: build_deck_tree(deck_names_and_ids),
             }),
         )
             .into_response(),
@@ -55,27 +58,31 @@ async fn get_anki_decks_tree(State(state): State<AppState>) -> impl IntoResponse
     }
 }
 
-fn build_deck_tree(deck_names: Vec<String>) -> Vec<DeckNode> {
+fn build_deck_tree(deck_names_and_ids: std::collections::HashMap<String, DeckId>) -> Vec<DeckNode> {
+    let mut entries: Vec<(String, DeckId)> = deck_names_and_ids.into_iter().collect();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+
     let mut root = DeckTreeBuilder::default();
-    for deck_name in deck_names {
+    for (deck_name, deck_id) in entries {
         let parts = deck_name
             .split("::")
             .filter(|part| !part.is_empty())
             .collect::<Vec<_>>();
-        root.insert(&parts);
+        root.insert(&parts, deck_id);
     }
 
     root.into_nodes()
 }
 
 impl DeckTreeBuilder {
-    fn insert(&mut self, parts: &[&str]) {
+    fn insert(&mut self, parts: &[&str], id: DeckId) {
         if parts.is_empty() {
+            self.id = Some(id);
             return;
         }
 
         let child = self.children.entry(parts[0].to_owned()).or_default();
-        child.insert(&parts[1..]);
+        child.insert(&parts[1..], id);
     }
 
     fn into_nodes(self) -> Vec<DeckNode> {
@@ -83,6 +90,7 @@ impl DeckTreeBuilder {
             .into_iter()
             .map(|(name, child)| DeckNode {
                 name,
+                id: child.id,
                 children: child.into_nodes(),
             })
             .collect()

@@ -1,0 +1,42 @@
+.modeCard {
+  cursor: pointer;
+  transition:
+    background-color 80ms ease,
+    box-shadow 80ms ease,
+    transform 80ms ease;
+}
+
+.modeCard > button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.modeCard:hover {
+  background-color: var(--accent-a3);
+}
+
+.modeCard:active {
+  transform: translateY(1px);
+}
+
+.modeCardActive {
+  box-shadow: inset 0 0 0 2px var(--accent-9);
+  background-color: var(--accent-a3);
+}
+
+.modeCardActive:hover {
+  background-color: var(--accent-a4);
+}
+
+.levelButton {
+  cursor: pointer;
+}
+
+.levelButton:disabled {
+  cursor: not-allowed;
+}

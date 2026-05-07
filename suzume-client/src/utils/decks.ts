@@ -1,26 +1,25 @@
 import type { DeckNode } from "../api/decksTree";
 
-export const deckHref = (parts: string[]): string =>
-  `/decks/${parts.map(encodeURIComponent).join("/")}`;
-
-export const splatToParts = (splat: string | undefined): string[] =>
-  splat ? splat.split("/").filter(Boolean).map(decodeURIComponent) : [];
+export const deckHref = (id: number): string => `/decks/${id}`;
 
 export const partsToFullName = (parts: string[]): string => parts.join("::");
 
-export function findDeckByPath(nodes: DeckNode[], parts: string[]): DeckNode | null {
-  let level = nodes;
-  let found: DeckNode | null = null;
+export type DeckLookup = {
+  deck: DeckNode;
+  parents: string[];
+};
 
-  for (const part of parts) {
-    found = level.find((node) => node.name === part) ?? null;
-
-    if (!found) {
-      return null;
+export function findDeckById(nodes: DeckNode[], id: number): DeckLookup | null {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return { deck: node, parents: [] };
     }
 
-    level = found.children;
+    const childMatch = findDeckById(node.children, id);
+    if (childMatch) {
+      return { deck: childMatch.deck, parents: [node.name, ...childMatch.parents] };
+    }
   }
 
-  return found;
+  return null;
 }

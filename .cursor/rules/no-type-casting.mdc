@@ -1,0 +1,53 @@
+---
+description: Avoid type casting in suzume-client TypeScript; rely on inference, narrowing, or runtime checks
+globs: suzume-client/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# No Type Casting
+
+Suzume-client must not paper over types with assertions. No `as Foo`, no `as unknown as Foo`, no non-null `!` to silence the compiler. If TypeScript complains, fix the type — don't override it.
+
+## Allowed
+
+- `as const` on literals/tuples (it tightens the type, it doesn't lie about it).
+- Type predicates (`value is Foo`) implemented with real runtime checks.
+- `satisfies` to verify a value matches a type without widening it.
+
+## Refactor patterns
+
+### `Array.includes` on a literal-typed `as const` array
+
+`includes` is strictly typed and won't accept `string`, which often tempts a cast. Use `.some` with an equality check instead — it carries no cast and TypeScript is happy.
+
+```ts
+// BAD
+export const isPracticeMode = (value: string | undefined): value is PracticeMode =>
+  PRACTICE_MODES.includes(value as PracticeMode);
+
+// GOOD
+export const isPracticeMode = (value: string | undefined): value is PracticeMode =>
+  PRACTICE_MODES.some((mode) => mode === value);
+```
+
+### `response.json()` typed as `Promise<T>`
+
+Don't cast the result; let the generic flow through. `any` from `response.json()` assigns to `T` cleanly, and adding a runtime validator (zod, etc.) is the proper fix when correctness matters.
+
+```ts
+// BAD
+return response.json() as Promise<T>;
+
+// GOOD
+return response.json();
+```
+
+### Discriminating from `string | undefined`
+
+Prefer narrowing (`if (value === undefined) return …`) and type predicates over `value as Foo`.
+
+## Anti-patterns
+
+- `as Foo` to placate a generic / API surface — change the signature instead.
+- `as unknown as Foo` — this is the cast escape hatch; don't.
+- Non-null `!` on values that can actually be null/undefined.

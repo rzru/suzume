@@ -4,7 +4,7 @@ import styles from "./AppShell.module.css";
 
 type AppShellProps = {
   sidebar: ReactNode;
-  header: ReactNode;
+  header?: ReactNode;
   children: ReactNode;
 };
 

@@ -5,5 +5,5 @@ export async function fetchJson<T>(url: string, label: string): Promise<T> {
     throw new Error(`${label} request failed (${response.status})`);
   }
 
-  return response.json() as Promise<T>;
+  return response.json();
 }
