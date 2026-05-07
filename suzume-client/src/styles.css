@@ -1,0 +1,70 @@
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.deck-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-3);
+  text-decoration: none;
+  color: var(--gray-12);
+  cursor: pointer;
+  transition:
+    background-color 80ms ease,
+    color 80ms ease;
+}
+
+.deck-link__name {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.deck-link:hover {
+  background-color: var(--accent-a3);
+}
+
+.deck-link--active {
+  background-color: var(--accent-a5);
+  color: var(--accent-12);
+}
+
+.deck-link__chevron {
+  color: var(--gray-9);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.deck-link--active .deck-link__chevron {
+  color: var(--accent-11);
+}
+
+.deck-link__leaf-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background-color: var(--gray-a7);
+  margin: 8px 4px 0;
+  flex-shrink: 0;
+}
+
+.deck-link--active .deck-link__leaf-dot {
+  background-color: var(--accent-11);
+}
+
+.deck-children {
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 1px solid var(--gray-a4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
