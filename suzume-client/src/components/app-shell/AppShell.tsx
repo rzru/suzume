@@ -25,6 +25,7 @@ export function AppShell({ sidebar, header, children }: AppShellProps) {
       <Flex
         display={{ initial: "flex", md: "none" }}
         align="center"
+        gap="3"
         className={styles.topBar}
         px="3"
         py="2"

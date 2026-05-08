@@ -3,6 +3,7 @@ import { InfoCircledIcon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
 import type { AssistantCard, PracticeMessage } from "../../hooks/usePracticeSocket";
 import { rewriteAnkiMedia } from "../../utils/ankiMedia";
+import { FeedbackBanner } from "./FeedbackBanner";
 import styles from "./PracticeSession.module.css";
 
 type MessageBubbleProps = {
@@ -20,14 +21,18 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   const target = message.role === "assistant" ? message.card.target : "";
   const rendered = isAssistant ? renderWithHighlight(message.content, target) : message.content;
+  const feedback = message.role === "assistant" ? message.feedback : null;
 
   return (
     <Box className={rowClass}>
-      <Flex align="center" gap="2" className={styles.bubbleWrap}>
-        <Card size="2" className={bubbleClass}>
-          <Text size="2">{rendered}</Text>
-        </Card>
-        {message.role === "assistant" && <CardInfoDialog card={message.card} />}
+      <Flex direction="column" gap="2" className={styles.bubbleWrap}>
+        {feedback && <FeedbackBanner feedback={feedback} />}
+        <Flex align="center" gap="2">
+          <Card size="2" className={bubbleClass}>
+            <Text size="2">{rendered}</Text>
+          </Card>
+          {message.role === "assistant" && <CardInfoDialog card={message.card} />}
+        </Flex>
       </Flex>
     </Box>
   );

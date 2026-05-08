@@ -23,7 +23,7 @@ export function DecksSidebar({ decks, onNavigate }: DecksSidebarProps) {
   return (
     <Flex direction="column" gap="3" height="100%">
       <Flex align="center" justify="between">
-        <Flex align="center" gap="2">
+        <Flex align="center" gap="2" px="3">
           <LayersIcon />
           <Heading size="3">Decks</Heading>
         </Flex>

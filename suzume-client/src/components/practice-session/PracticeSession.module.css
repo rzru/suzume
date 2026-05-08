@@ -82,6 +82,36 @@
   font-weight: 600;
 }
 
+.feedbackOk,
+.feedbackCorrection {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.feedbackCorrection :global(.rt-CalloutText) {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.feedbackRemoved {
+  background: var(--red-a3);
+  color: var(--red-11);
+  text-decoration: line-through;
+  padding: 0 2px;
+  border-radius: 4px;
+  margin: 0 1px;
+}
+
+.feedbackAdded {
+  background: var(--grass-a4);
+  color: var(--grass-11);
+  padding: 0 2px;
+  border-radius: 4px;
+  font-weight: 500;
+  margin: 0 1px;
+}
+
 .cardFieldHtml {
   font-size: var(--font-size-2);
   line-height: var(--line-height-2);

@@ -27,23 +27,29 @@ const DecksPageInner = () => {
 
   if (error) {
     return (
-      <Callout.Root color="red">
-        <Callout.Icon>
-          <ExclamationTriangleIcon />
-        </Callout.Icon>
-        <Callout.Text>{error.message ?? "Decks tree request failed"}</Callout.Text>
-      </Callout.Root>
+      <>
+        <title>Decks — Suzume</title>
+        <Callout.Root color="red">
+          <Callout.Icon>
+            <ExclamationTriangleIcon />
+          </Callout.Icon>
+          <Callout.Text>{error.message ?? "Decks tree request failed"}</Callout.Text>
+        </Callout.Root>
+      </>
     );
   }
 
   if (!deckId) {
     return (
-      <Callout.Root color="iris" variant="surface">
-        <Callout.Icon>
-          <InfoCircledIcon />
-        </Callout.Icon>
-        <Callout.Text>Select a deck from the left sidebar to get started.</Callout.Text>
-      </Callout.Root>
+      <>
+        <title>Decks — Suzume</title>
+        <Callout.Root color="iris" variant="surface">
+          <Callout.Icon>
+            <InfoCircledIcon />
+          </Callout.Icon>
+          <Callout.Text>Select a deck from the left sidebar to get started.</Callout.Text>
+        </Callout.Root>
+      </>
     );
   }
 
@@ -52,20 +58,26 @@ const DecksPageInner = () => {
 
   if (!lookup || lookup.deck.id == null) {
     return (
-      <Callout.Root color="amber">
-        <Callout.Icon>
-          <ExclamationTriangleIcon />
-        </Callout.Icon>
-        <Callout.Text>Deck not found. Pick another deck from the sidebar.</Callout.Text>
-      </Callout.Root>
+      <>
+        <title>Decks — Suzume</title>
+        <Callout.Root color="amber">
+          <Callout.Icon>
+            <ExclamationTriangleIcon />
+          </Callout.Icon>
+          <Callout.Text>Deck not found. Pick another deck from the sidebar.</Callout.Text>
+        </Callout.Root>
+      </>
     );
   }
 
   return (
-    <PracticeModePicker
-      deckId={lookup.deck.id}
-      deckName={lookup.deck.name}
-      parents={lookup.parents}
-    />
+    <>
+      <title>{`${lookup.deck.name} — Suzume`}</title>
+      <PracticeModePicker
+        deckId={lookup.deck.id}
+        deckName={lookup.deck.name}
+        parents={lookup.parents}
+      />
+    </>
   );
 };

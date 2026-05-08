@@ -7,9 +7,13 @@ use crate::state::AppState;
 
 use super::{
     PracticeMode, PracticeParams, ProficiencyLevel, TranslateDirection, cards::PracticeCard,
+    feedback::{self, Feedback},
 };
 
 const CHAT_HISTORY_TURNS: usize = 4;
+const QUOTE_CHARS: &[char] = &[
+    '"', '\'', '`', '\u{201C}', '\u{201D}', '\u{2018}', '\u{2019}',
+];
 
 #[derive(Debug)]
 pub enum SessionError {
@@ -35,6 +39,8 @@ pub struct PracticeSession {
     history: Vec<ChatMessage>,
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
+    card_language: Option<&'static str>,
+    last_assistant: Option<String>,
 }
 
 impl PracticeSession {
@@ -51,6 +57,8 @@ impl PracticeSession {
             history: Vec::new(),
             mode: params.mode,
             direction: params.direction,
+            card_language: None,
+            last_assistant: None,
         })
     }
 
@@ -88,7 +96,52 @@ impl PracticeSession {
             self.trim_history();
         }
 
+        self.card_language = card.language;
+        self.last_assistant = Some(stored.content.clone());
+
         Ok(stored.content)
+    }
+
+    pub async fn correct(&self, user_reply: &str) -> Result<Option<Feedback>, SessionError> {
+        let trimmed = user_reply.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+
+        let Some(last_assistant) = self.last_assistant.as_deref() else {
+            return Ok(None);
+        };
+
+        let prompt = build_correction_prompt(
+            self.mode,
+            self.direction,
+            self.card_language,
+            last_assistant,
+            trimmed,
+        );
+
+        let messages = vec![
+            ChatMessage::system(correction_system_prompt().to_owned()),
+            ChatMessage::user(prompt),
+        ];
+
+        let request = ChatMessageRequest::new(self.model.clone(), messages);
+
+        let response = self
+            .ollama
+            .send_chat_messages(request)
+            .await
+            .map_err(SessionError::Ollama)?;
+
+        let raw = strip_thinking(&response.message.content);
+        let cleaned = clean_correction_output(&raw);
+        let corrected = if cleaned.is_empty() {
+            trimmed.to_owned()
+        } else {
+            cleaned
+        };
+
+        Ok(Some(feedback::build(trimmed, &corrected)))
     }
 
     fn assemble_prompt(&self, current: ChatMessage) -> Vec<ChatMessage> {
@@ -130,6 +183,57 @@ fn strip_thinking(content: &str) -> String {
 
     out.push_str(rest);
     out.trim().to_owned()
+}
+
+fn clean_correction_output(raw: &str) -> String {
+    let first_line = raw
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or("");
+
+    let trimmed = first_line.trim_matches(QUOTE_CHARS).trim();
+    trimmed.to_owned()
+}
+
+fn correction_system_prompt() -> &'static str {
+    "You are a strict language proofreader. Output ONLY the corrected sentence on a single \
+    line. No quotes, no labels, no explanations, no markdown. If the sentence is already \
+    correct, return it exactly as given."
+}
+
+fn build_correction_prompt(
+    mode: PracticeMode,
+    direction: Option<TranslateDirection>,
+    card_language: Option<&'static str>,
+    last_assistant: &str,
+    learner_reply: &str,
+) -> String {
+    let card_lang = card_language.unwrap_or("the card language");
+
+    match mode {
+        PracticeMode::Chat => format!(
+            "Card language: {card_lang}. Rewrite the LEARNER message naturally in {card_lang}, \
+            fixing grammar, spelling, and word choice. If already correct, return it exactly \
+            as given.\n\n\
+            LEARNER: {learner_reply}"
+        ),
+        PracticeMode::Translate => match direction {
+            Some(TranslateDirection::To) => format!(
+                "SOURCE: {last_assistant}\n\
+                LEARNER TRANSLATION ({card_lang}): {learner_reply}\n\n\
+                Rewrite the learner's translation as a natural and accurate {card_lang} \
+                translation of SOURCE. If already correct, return it exactly as given."
+            ),
+            Some(TranslateDirection::From) | None => format!(
+                "SOURCE ({card_lang}): {last_assistant}\n\
+                LEARNER TRANSLATION: {learner_reply}\n\n\
+                Rewrite the learner's translation as a natural and accurate translation of \
+                SOURCE, in the SAME language the learner wrote in (auto-detect). If already \
+                correct, return it exactly as given."
+            ),
+        },
+    }
 }
 
 fn system_prompt(

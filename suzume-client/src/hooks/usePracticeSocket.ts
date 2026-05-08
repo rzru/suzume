@@ -7,8 +7,27 @@ import type {
   TranslateDirection,
 } from "../utils/practice";
 
+export type DiffSegment = {
+  kind: "equal" | "removed" | "added";
+  text: string;
+};
+
+export type PracticeFeedback = {
+  has_mistakes: boolean;
+  original: string;
+  corrected: string;
+  diff_original: DiffSegment[];
+  diff_corrected: DiffSegment[];
+};
+
 export type PracticeMessage =
-  | { id: string; role: "assistant"; content: string; card: AssistantCard }
+  | {
+      id: string;
+      role: "assistant";
+      content: string;
+      card: AssistantCard;
+      feedback: PracticeFeedback | null;
+    }
   | { id: string; role: "user"; content: string };
 
 export type AssistantCard = {
@@ -20,7 +39,12 @@ export type AssistantCard = {
 export type SocketStatus = "connecting" | "open" | "closed" | "error";
 
 type ServerFrame =
-  | { type: "assistant"; content: string; card: AssistantCard }
+  | {
+      type: "assistant";
+      content: string;
+      card: AssistantCard;
+      feedback?: PracticeFeedback | null;
+    }
   | { type: "error"; message: string };
 
 type UsePracticeSocketParams = {
@@ -91,6 +115,7 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
               role: "assistant",
               content: parsed.content,
               card: parsed.card,
+              feedback: parsed.feedback ?? null,
             },
           ]);
           setIsAwaitingReply(false);

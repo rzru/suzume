@@ -22,3 +22,4 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
 uuid = { version = "1.18.1", features = ["v4"] }
 whatlang = "0.18"
+similar = "2"

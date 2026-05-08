@@ -39,12 +39,15 @@ const PracticePageInner = () => {
 
   if (error) {
     return (
-      <Callout.Root color="red">
-        <Callout.Icon>
-          <ExclamationTriangleIcon />
-        </Callout.Icon>
-        <Callout.Text>{error.message ?? "Decks tree request failed"}</Callout.Text>
-      </Callout.Root>
+      <>
+        <title>Practice — Suzume</title>
+        <Callout.Root color="red">
+          <Callout.Icon>
+            <ExclamationTriangleIcon />
+          </Callout.Icon>
+          <Callout.Text>{error.message ?? "Decks tree request failed"}</Callout.Text>
+        </Callout.Root>
+      </>
     );
   }
 
@@ -67,26 +70,32 @@ const PracticePageInner = () => {
 
   if (!lookup) {
     return (
-      <Callout.Root color="amber">
-        <Callout.Icon>
-          <ExclamationTriangleIcon />
-        </Callout.Icon>
-        <Callout.Text>Deck not found. Pick another deck from the sidebar.</Callout.Text>
-      </Callout.Root>
+      <>
+        <title>Practice — Suzume</title>
+        <Callout.Root color="amber">
+          <Callout.Icon>
+            <ExclamationTriangleIcon />
+          </Callout.Icon>
+          <Callout.Text>Deck not found. Pick another deck from the sidebar.</Callout.Text>
+        </Callout.Root>
+      </>
     );
   }
 
   const fullDeckName = partsToFullName([...lookup.parents, lookup.deck.name]);
 
   return (
-    <PracticeSession
-      deckName={fullDeckName}
-      deckLabel={lookup.deck.name}
-      parents={lookup.parents}
-      mode={mode}
-      level={level}
-      scope={scope}
-      direction={isTranslateDirection(direction) ? direction : null}
-    />
+    <>
+      <title>{`Practice: ${fullDeckName} — Suzume`}</title>
+      <PracticeSession
+        deckName={fullDeckName}
+        deckLabel={lookup.deck.name}
+        parents={lookup.parents}
+        mode={mode}
+        level={level}
+        scope={scope}
+        direction={isTranslateDirection(direction) ? direction : null}
+      />
+    </>
   );
 };

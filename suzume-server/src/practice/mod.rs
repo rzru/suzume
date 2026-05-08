@@ -1,4 +1,5 @@
 mod cards;
+mod feedback;
 mod session;
 
 use axum::{
@@ -16,6 +17,7 @@ use tracing::{debug, error, info, warn};
 use crate::state::AppState;
 
 use self::cards::CardSampler;
+use self::feedback::Feedback;
 use self::session::PracticeSession;
 
 pub fn router() -> Router<AppState> {
@@ -88,6 +90,8 @@ enum ServerMessage<'a> {
     Assistant {
         content: &'a str,
         card: AssistantCard<'a>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        feedback: Option<&'a Feedback>,
     },
     Error {
         message: &'a str,
@@ -138,7 +142,7 @@ async fn run_session(mut socket: WebSocket, state: AppState, params: PracticePar
         }
     };
 
-    if let Err(err) = run_turn(&mut socket, &sampler, &mut session, &params, None).await {
+    if let Err(err) = run_turn(&mut socket, &sampler, &mut session, &params, None, None).await {
         warn!(?err, "first practice turn failed");
         return;
     }
@@ -172,7 +176,23 @@ async fn run_session(mut socket: WebSocket, state: AppState, params: PracticePar
 
         let ClientMessage::User { content } = parsed;
 
-        if let Err(err) = run_turn(&mut socket, &sampler, &mut session, &params, Some(&content)).await
+        let feedback = match session.correct(&content).await {
+            Ok(feedback) => feedback,
+            Err(err) => {
+                warn!(?err, "correction call failed; continuing without feedback");
+                None
+            }
+        };
+
+        if let Err(err) = run_turn(
+            &mut socket,
+            &sampler,
+            &mut session,
+            &params,
+            Some(&content),
+            feedback,
+        )
+        .await
         {
             warn!(?err, "practice turn failed");
             break;
@@ -188,6 +208,7 @@ async fn run_turn(
     session: &mut PracticeSession,
     params: &PracticeParams,
     user_reply: Option<&str>,
+    feedback: Option<Feedback>,
 ) -> Result<(), TurnError> {
     let card = match sampler.pick_random(&params.deck, params.scope).await {
         Ok(Some(card)) => card,
@@ -222,6 +243,7 @@ async fn run_turn(
                 .map(|(name, value)| (name.as_str(), value.as_str()))
                 .collect(),
         },
+        feedback: feedback.as_ref(),
     };
 
     let json = serde_json::to_string(&payload).map_err(|_| TurnError::Serialize)?;
