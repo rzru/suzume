@@ -1,6 +1,7 @@
-import { Badge, Box, Card, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Card, Dialog, Flex, IconButton, Text } from "@radix-ui/themes";
+import { InfoCircledIcon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
-import type { PracticeMessage } from "../../hooks/usePracticeSocket";
+import type { AssistantCard, PracticeMessage } from "../../hooks/usePracticeSocket";
 import styles from "./PracticeSession.module.css";
 
 type MessageBubbleProps = {
@@ -21,34 +22,65 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <Box className={rowClass}>
-      <Card size="2" className={bubbleClass}>
-        <Text size="2">{rendered}</Text>
-        {message.role === "assistant" && (
-          <Box className={styles.cardMeta}>
-            <Flex direction="column" gap="2">
-              <Flex align="center" gap="2" wrap="wrap">
-                <Text size="1" color="gray" weight="medium">
-                  Card #{message.card.id}
-                </Text>
-                {target && (
-                  <Badge color="amber" variant="surface">
-                    Target: {target}
-                  </Badge>
-                )}
-              </Flex>
-              {Object.entries(message.card.fields)
-                .filter(([, value]) => value.trim().length > 0)
-                .slice(0, 4)
-                .map(([name, value]) => (
-                  <Text key={name} size="1" color="gray">
-                    <strong>{name}:</strong> {value}
-                  </Text>
-                ))}
-            </Flex>
-          </Box>
-        )}
-      </Card>
+      <Flex align="center" gap="2" className={styles.bubbleWrap}>
+        <Card size="2" className={bubbleClass}>
+          <Text size="2">{rendered}</Text>
+        </Card>
+        {message.role === "assistant" && <CardInfoDialog card={message.card} />}
+      </Flex>
     </Box>
+  );
+}
+
+function CardInfoDialog({ card }: { card: AssistantCard }) {
+  const fields = Object.entries(card.fields).filter(([, value]) => value.trim().length > 0);
+
+  return (
+    <Dialog.Root>
+      <Dialog.Trigger>
+        <IconButton
+          variant="ghost"
+          color="gray"
+          size="1"
+          aria-label="Show card details"
+          className={styles.infoButton}
+        >
+          <InfoCircledIcon />
+        </IconButton>
+      </Dialog.Trigger>
+      <Dialog.Content className={styles.drawerContent}>
+        <Box className={styles.drawerHeader}>
+          <Dialog.Title mb="1">{card.target || `Card #${card.id}`}</Dialog.Title>
+          <Dialog.Description size="2" color="gray">
+            Card #{card.id}
+          </Dialog.Description>
+        </Box>
+
+        <Box className={styles.drawerBody}>
+          <Flex direction="column" gap="3">
+            {fields.map(([name, value]) => (
+              <Box key={name}>
+                <Text size="1" color="gray" weight="medium" as="div" mb="1">
+                  {name}
+                </Text>
+                <div
+                  className={styles.cardFieldHtml}
+                  dangerouslySetInnerHTML={{ __html: value }}
+                />
+              </Box>
+            ))}
+          </Flex>
+        </Box>
+
+        <Flex className={styles.drawerFooter} gap="2" justify="end">
+          <Dialog.Close>
+            <Button variant="soft" color="gray">
+              Close
+            </Button>
+          </Dialog.Close>
+        </Flex>
+      </Dialog.Content>
+    </Dialog.Root>
   );
 }
 

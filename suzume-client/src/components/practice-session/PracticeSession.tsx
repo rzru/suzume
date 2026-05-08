@@ -10,12 +10,7 @@ import {
   Text,
   TextField,
 } from "@radix-ui/themes";
-import {
-  ExclamationTriangleIcon,
-  PaperPlaneIcon,
-  StackIcon,
-  StarIcon,
-} from "@radix-ui/react-icons";
+import { ExclamationTriangleIcon, PaperPlaneIcon, StackIcon } from "@radix-ui/react-icons";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { usePracticeSocket } from "../../hooks/usePracticeSocket";
 import type {
@@ -66,12 +61,19 @@ export function PracticeSession({
 
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages.length, isAwaitingReply]);
+
+  useEffect(() => {
+    if (status === "open" && !isAwaitingReply) {
+      inputRef.current?.focus();
+    }
+  }, [status, isAwaitingReply]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -84,105 +86,98 @@ export function PracticeSession({
 
   const breadcrumb = parents.length > 0 ? parents.join(" / ") : "Top-level deck";
   const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
-  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const currentTarget =
-    lastAssistant && lastAssistant.role === "assistant" ? lastAssistant.card.target : "";
 
   const composerDisabled = status !== "open" || isAwaitingReply;
 
   return (
-    <Flex direction="column" gap="4" height="100%" className={styles.session}>
-      <Box>
-        <Flex align="center" gap="2">
-          <StackIcon />
-          <Heading size="5">{deckLabel}</Heading>
-        </Flex>
-        <Text size="2" color="gray">
-          {breadcrumb}
-        </Text>
-      </Box>
-
-      <Flex align="center" gap="2" wrap="wrap">
-        <Badge color="iris" variant="soft">
-          {modeLabel}
-        </Badge>
-        <Badge color="gray" variant="soft">
-          {level.toUpperCase()}
-        </Badge>
-        <Badge color="grass" variant="soft">
-          {SCOPE_LABELS[scope]}
-        </Badge>
-        {direction && (
-          <Badge color="amber" variant="soft">
-            {DIRECTION_LABELS[direction]}
-          </Badge>
-        )}
-        <SocketStatusBadge status={status} />
-      </Flex>
-
-      {error !== null && (
-        <Callout.Root color="amber" size="1">
-          <Callout.Icon>
-            <ExclamationTriangleIcon />
-          </Callout.Icon>
-          <Callout.Text>{error}</Callout.Text>
-        </Callout.Root>
-      )}
-
-      {currentTarget && (
-        <Box className={styles.targetBanner}>
+    <Flex justify="center" height="100%">
+      <Flex
+        direction="column"
+        gap="4"
+        height="100%"
+        width="100%"
+        maxWidth="720px"
+        className={styles.session}
+      >
+        <Box>
           <Flex align="center" gap="2">
-            <StarIcon />
-            <Text size="2" color="gray">
-              Now practicing
-            </Text>
-            <Text size="3" weight="bold">
-              {currentTarget}
-            </Text>
+            <StackIcon />
+            <Heading size="5">{deckLabel}</Heading>
           </Flex>
+          <Text size="2" color="gray">
+            {breadcrumb}
+          </Text>
         </Box>
-      )}
 
-      <ScrollArea type="auto" scrollbars="vertical" className={styles.scroller} ref={scrollRef}>
-        <Flex direction="column" gap="3" pr="3">
-          {messages.length === 0 && status === "connecting" && (
-            <Flex justify="center" align="center" gap="2">
-              <Spinner size="2" />
-              <Text color="gray">Connecting to practice session...</Text>
-            </Flex>
+        <Flex align="center" gap="2" wrap="wrap">
+          <Badge color="iris" variant="soft">
+            {modeLabel}
+          </Badge>
+          <Badge color="gray" variant="soft">
+            {level.toUpperCase()}
+          </Badge>
+          <Badge color="grass" variant="soft">
+            {SCOPE_LABELS[scope]}
+          </Badge>
+          {direction && (
+            <Badge color="amber" variant="soft">
+              {DIRECTION_LABELS[direction]}
+            </Badge>
           )}
-          {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
-          {isAwaitingReply && status === "open" && (
-            <Flex align="center" gap="2">
-              <Spinner size="1" />
-              <Text size="2" color="gray">
-                Thinking...
-              </Text>
-            </Flex>
-          )}
+          <SocketStatusBadge status={status} />
         </Flex>
-      </ScrollArea>
 
-      <form onSubmit={handleSubmit} className={styles.composer}>
-        <TextField.Root
-          size="3"
-          placeholder={
-            mode === "translate" && direction === "to"
-              ? "Translate the sentence back..."
-              : "Type your reply..."
-          }
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          disabled={composerDisabled}
-          className={styles.composerInput}
-        />
-        <Button type="submit" size="3" disabled={composerDisabled || draft.trim().length === 0}>
-          <PaperPlaneIcon />
-          Send
-        </Button>
-      </form>
+        {error !== null && (
+          <Callout.Root color="amber" size="1">
+            <Callout.Icon>
+              <ExclamationTriangleIcon />
+            </Callout.Icon>
+            <Callout.Text>{error}</Callout.Text>
+          </Callout.Root>
+        )}
+
+        <ScrollArea type="auto" scrollbars="vertical" className={styles.scroller} ref={scrollRef}>
+          <Flex direction="column" gap="3" pr="3">
+            {messages.length === 0 && status === "connecting" && (
+              <Flex justify="center" align="center" gap="2">
+                <Spinner size="2" />
+                <Text color="gray">Connecting to practice session...</Text>
+              </Flex>
+            )}
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+            {isAwaitingReply && status === "open" && (
+              <Flex align="center" gap="2">
+                <Spinner size="1" />
+                <Text size="2" color="gray">
+                  Thinking...
+                </Text>
+              </Flex>
+            )}
+          </Flex>
+        </ScrollArea>
+
+        <form onSubmit={handleSubmit} className={styles.composer}>
+          <TextField.Root
+            ref={inputRef}
+            size="3"
+            placeholder={
+              mode === "translate" && direction === "to"
+                ? "Translate the sentence back..."
+                : "Type your reply..."
+            }
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            disabled={composerDisabled}
+            className={styles.composerInput}
+          />
+          <Button type="submit" size="3" disabled={composerDisabled || draft.trim().length === 0}>
+            <PaperPlaneIcon />
+            Send
+          </Button>
+        </form>
+      </Flex>
     </Flex>
   );
 }
