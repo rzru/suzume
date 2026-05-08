@@ -107,14 +107,21 @@ async fn main() {
 }
 
 fn build_cors_layer(allowed_origins: &[String]) -> CorsLayer {
-    let origins: Vec<HeaderValue> = allowed_origins
+    let trimmed: Vec<&str> = allowed_origins
         .iter()
-        .filter_map(|origin| HeaderValue::from_str(origin.trim()).ok())
+        .map(|origin| origin.trim())
+        .filter(|origin| !origin.is_empty())
         .collect();
 
-    let allow_origin = if origins.is_empty() {
+    let allow_any = trimmed.is_empty() || trimmed.iter().any(|origin| *origin == "*");
+
+    let allow_origin = if allow_any {
         AllowOrigin::any()
     } else {
+        let origins: Vec<HeaderValue> = trimmed
+            .iter()
+            .filter_map(|origin| HeaderValue::from_str(origin).ok())
+            .collect();
         AllowOrigin::list(origins)
     };
 

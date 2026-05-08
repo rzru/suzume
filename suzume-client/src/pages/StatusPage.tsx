@@ -59,7 +59,7 @@ export function StatusPage() {
   ];
 
   return (
-    <Flex height="100vh" align="center" justify="center" p="6">
+    <Flex height="100dvh" align="center" justify="center" p="6">
       <title>Status — Suzume</title>
       <Flex direction="column" gap="4" width="320px">
         <Box>

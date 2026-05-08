@@ -17,8 +17,8 @@
   margin: 0;
   width: 100%;
   max-width: 320px;
-  height: 100vh;
-  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   border-radius: 0;
   padding: 0;
   overflow: hidden;

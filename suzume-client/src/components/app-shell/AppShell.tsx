@@ -21,19 +21,19 @@ export function AppShell({ sidebar, header, children }: AppShellProps) {
   });
 
   return (
-    <Flex direction="column" height="100vh" width="100%" overflow="hidden">
+    <Flex direction="column" height="100dvh" width="100%" overflow="hidden">
       <Flex
         display={{ initial: "flex", md: "none" }}
         align="center"
         gap="3"
         className={styles.topBar}
         px="3"
-        py="2"
+        py="3"
       >
         <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
           <Dialog.Trigger>
-            <IconButton variant="ghost" color="gray" size="3" aria-label="Open decks menu">
-              <HamburgerMenuIcon />
+            <IconButton variant="ghost" color="gray" size="4" aria-label="Open decks menu">
+              <HamburgerMenuIcon width="24" height="24" />
             </IconButton>
           </Dialog.Trigger>
           <Dialog.Content className={styles.mobileDrawer}>

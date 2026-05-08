@@ -1,10 +1,11 @@
-import { Badge, Box, Button, Card, Dialog, Flex, IconButton, Text } from "@radix-ui/themes";
-import { InfoCircledIcon, TrackNextIcon } from "@radix-ui/react-icons";
+import { Badge, Box, Card, Flex, IconButton, Text } from "@radix-ui/themes";
+import { TrackNextIcon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
-import type { AssistantCard, PracticeMessage } from "../../hooks/usePracticeSocket";
-import { rewriteAnkiMedia } from "../../utils/ankiMedia";
+import type { PracticeMessage } from "../../hooks/usePracticeSocket";
+import { splitWithHighlight } from "../../utils/practiceHighlight";
+import { CardInfoDialog } from "./CardInfoDialog";
 import { FeedbackBanner } from "./FeedbackBanner";
-import styles from "./PracticeSession.module.css";
+import styles from "./MessageBubble.module.css";
 
 type MessageBubbleProps = {
   message: PracticeMessage;
@@ -25,9 +26,11 @@ export function MessageBubble({ message, onSkip }: MessageBubbleProps) {
     .filter(Boolean)
     .join(" ");
 
-  const target = message.role === "assistant" ? message.card.target : "";
-  const rendered = isAssistant ? renderWithHighlight(message.content, target) : message.content;
-  const feedback = message.role === "assistant" ? message.feedback : null;
+  const target = isAssistant ? message.card.target : "";
+  const rendered: ReactNode = isAssistant
+    ? renderHighlightedContent(message.content, target)
+    : message.content;
+  const feedback = isAssistant ? message.feedback : null;
   const showSkipButton = isAssistant && !isSkipped && typeof onSkip === "function";
 
   return (
@@ -66,143 +69,15 @@ export function MessageBubble({ message, onSkip }: MessageBubbleProps) {
   );
 }
 
-function CardInfoDialog({ card }: { card: AssistantCard }) {
-  const fields = Object.entries(card.fields).filter(([, value]) => value.trim().length > 0);
-
-  return (
-    <Dialog.Root>
-      <Dialog.Trigger>
-        <IconButton
-          variant="ghost"
-          color="gray"
-          size="1"
-          aria-label="Show card details"
-          className={styles.infoButton}
-        >
-          <InfoCircledIcon />
-        </IconButton>
-      </Dialog.Trigger>
-      <Dialog.Content className={styles.drawerContent}>
-        <Box className={styles.drawerHeader}>
-          <Dialog.Title mb="1">
-            {card.target ? (
-              <span
-                className={styles.drawerTitleHtml}
-                dangerouslySetInnerHTML={{ __html: rewriteAnkiMedia(card.target) }}
-              />
-            ) : (
-              `Card #${card.id}`
-            )}
-          </Dialog.Title>
-          <Dialog.Description size="2" color="gray">
-            Card #{card.id}
-          </Dialog.Description>
-        </Box>
-
-        <Box className={styles.drawerBody}>
-          <Flex direction="column" gap="3">
-            {fields.map(([name, value]) => (
-              <Box key={name}>
-                <Text size="1" color="gray" weight="medium" as="div" mb="1">
-                  {name}
-                </Text>
-                <div
-                  className={styles.cardFieldHtml}
-                  dangerouslySetInnerHTML={{ __html: rewriteAnkiMedia(value) }}
-                />
-              </Box>
-            ))}
-          </Flex>
-        </Box>
-
-        <Flex className={styles.drawerFooter} gap="2" justify="end">
-          <Dialog.Close>
-            <Button variant="soft" color="gray">
-              Close
-            </Button>
-          </Dialog.Close>
-        </Flex>
-      </Dialog.Content>
-    </Dialog.Root>
+function renderHighlightedContent(content: string, target: string): ReactNode {
+  const segments = splitWithHighlight(content, target);
+  return segments.map((segment, index) =>
+    segment.kind === "highlight" ? (
+      <mark key={index} className={styles.targetHighlight}>
+        {segment.text}
+      </mark>
+    ) : (
+      <span key={index}>{segment.text}</span>
+    ),
   );
-}
-
-const MARKER_REGEX = /\*\*([^*]+)\*\*/g;
-
-function renderWithHighlight(content: string, target: string): ReactNode {
-  const markerParts = renderWithMarkers(content);
-  if (markerParts !== null) {
-    return markerParts;
-  }
-
-  return renderWithSubstring(content, target);
-}
-
-function renderWithMarkers(content: string): ReactNode[] | null {
-  const parts: ReactNode[] = [];
-  let cursor = 0;
-  let key = 0;
-  let matched = false;
-
-  for (const match of content.matchAll(MARKER_REGEX)) {
-    matched = true;
-    const start = match.index ?? 0;
-    if (start > cursor) {
-      parts.push(content.slice(cursor, start));
-    }
-    parts.push(
-      <mark key={`hl-${key++}`} className={styles.targetHighlight}>
-        {match[1]}
-      </mark>,
-    );
-    cursor = start + match[0].length;
-  }
-
-  if (!matched) {
-    return null;
-  }
-
-  if (cursor < content.length) {
-    parts.push(content.slice(cursor));
-  }
-
-  return parts;
-}
-
-function renderWithSubstring(content: string, target: string): ReactNode {
-  const trimmed = target.trim();
-  if (!trimmed) {
-    return content;
-  }
-
-  const lowerContent = content.toLowerCase();
-  const lowerTarget = trimmed.toLowerCase();
-
-  const parts: ReactNode[] = [];
-  let cursor = 0;
-  let key = 0;
-  let next = lowerContent.indexOf(lowerTarget, cursor);
-
-  while (next !== -1) {
-    if (next > cursor) {
-      parts.push(content.slice(cursor, next));
-    }
-    parts.push(
-      <mark key={`hl-${key++}`} className={styles.targetHighlight}>
-        {content.slice(next, next + trimmed.length)}
-      </mark>,
-    );
-    cursor = next + trimmed.length;
-    next = lowerContent.indexOf(lowerTarget, cursor);
-  }
-
-  if (cursor === 0) {
-    return content;
-  }
-
-  if (cursor < content.length) {
-    parts.push(content.slice(cursor));
-  }
-
-  return parts;
 }

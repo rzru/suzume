@@ -1,0 +1,115 @@
+.infoButton {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.infoButton:hover {
+  opacity: 1;
+}
+
+.drawerContent.drawerContent {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  margin: 0;
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawerContent[data-state="open"] {
+  animation: drawerSlideIn 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.drawerContent[data-state="closed"] {
+  animation: drawerSlideOut 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes drawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawerSlideOut {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.drawerHeader {
+  padding: var(--space-5) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--gray-a4);
+}
+
+.drawerBody {
+  flex-grow: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5);
+}
+
+.drawerFooter {
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--gray-a4);
+}
+
+.drawerTitleHtml :global(img) {
+  max-height: 1.4em;
+  width: auto;
+  vertical-align: middle;
+}
+
+.drawerTitleHtml :global(audio) {
+  display: none;
+}
+
+.drawerTitleHtml :global(p) {
+  display: inline;
+  margin: 0;
+}
+
+.cardFieldHtml {
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+  color: var(--gray-12);
+  word-break: break-word;
+}
+
+.cardFieldHtml :global(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-2);
+}
+
+.cardFieldHtml :global(audio) {
+  width: 100%;
+  display: block;
+  margin: var(--space-1) 0;
+}
+
+.cardFieldHtml :global(a) {
+  color: var(--accent-11);
+}
+
+.cardFieldHtml :global(p) {
+  margin: 0 0 var(--space-2);
+}
+
+.cardFieldHtml :global(p:last-child) {
+  margin-bottom: 0;
+}

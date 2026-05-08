@@ -17,7 +17,7 @@ export function HealthGate({ children }: HealthGateProps) {
 
   if (isPending) {
     return (
-      <Flex height="100vh" align="center" justify="center" gap="2">
+      <Flex height="100dvh" align="center" justify="center" gap="2">
         <Spinner size="3" />
         <Text color="gray">Checking system status...</Text>
       </Flex>

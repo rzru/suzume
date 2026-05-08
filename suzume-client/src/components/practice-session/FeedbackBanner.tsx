@@ -2,7 +2,8 @@ import { Callout, Text } from "@radix-ui/themes";
 import { CheckCircledIcon, Pencil2Icon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
 import type { DiffSegment, PracticeFeedback } from "../../hooks/usePracticeSocket";
-import styles from "./PracticeSession.module.css";
+import { mergeDiffs } from "../../utils/practiceDiff";
+import styles from "./FeedbackBanner.module.css";
 
 type FeedbackBannerProps = {
   feedback: PracticeFeedback;
@@ -53,50 +54,4 @@ function renderSegment(segment: DiffSegment, idx: number): ReactNode {
         </mark>
       );
   }
-}
-
-function mergeDiffs(original: DiffSegment[], corrected: DiffSegment[]): DiffSegment[] {
-  const merged: DiffSegment[] = [];
-  let i = 0;
-  let j = 0;
-
-  while (i < original.length || j < corrected.length) {
-    const origSeg = original[i];
-    const corrSeg = corrected[j];
-
-    if (origSeg && corrSeg && origSeg.kind === "equal" && corrSeg.kind === "equal") {
-      merged.push({ kind: "equal", text: origSeg.text });
-      i++;
-      j++;
-      continue;
-    }
-
-    if (origSeg && origSeg.kind === "removed") {
-      merged.push(origSeg);
-      i++;
-      continue;
-    }
-
-    if (corrSeg && corrSeg.kind === "added") {
-      merged.push(corrSeg);
-      j++;
-      continue;
-    }
-
-    if (origSeg && origSeg.kind === "equal") {
-      merged.push(origSeg);
-      i++;
-      continue;
-    }
-
-    if (corrSeg && corrSeg.kind === "equal") {
-      merged.push(corrSeg);
-      j++;
-      continue;
-    }
-
-    break;
-  }
-
-  return merged;
 }

@@ -1,0 +1,66 @@
+.bubbleRow {
+  display: flex;
+  width: 100%;
+}
+
+.bubbleRowAssistant {
+  justify-content: flex-start;
+}
+
+.bubbleRowUser {
+  justify-content: flex-end;
+}
+
+.bubbleWrap {
+  max-width: 80%;
+}
+
+.bubble {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubbleAssistant {
+  background: var(--gray-3);
+}
+
+.bubbleUser {
+  background: var(--accent-9);
+  color: var(--accent-contrast);
+}
+
+.bubbleSkipped {
+  opacity: 0.55;
+}
+
+.bubbleSkipped .targetHighlight {
+  background: var(--gray-a4);
+  color: var(--gray-11);
+  font-weight: 500;
+}
+
+.bubbleActions {
+  flex-shrink: 0;
+}
+
+.skipButton {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.skipButton:hover,
+.skipButton:focus-visible {
+  opacity: 1;
+}
+
+.skippedBadge {
+  align-self: flex-start;
+}
+
+.targetHighlight {
+  background: var(--amber-a5);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 4px;
+  font-weight: 600;
+}
