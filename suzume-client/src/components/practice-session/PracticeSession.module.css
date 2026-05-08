@@ -95,6 +95,12 @@
   border-radius: var(--radius-2);
 }
 
+.cardFieldHtml :global(audio) {
+  width: 100%;
+  display: block;
+  margin: var(--space-1) 0;
+}
+
 .cardFieldHtml :global(a) {
   color: var(--accent-11);
 }

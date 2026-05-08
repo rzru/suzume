@@ -70,6 +70,7 @@ async fn main() {
 
     let anki_http_client = Client::builder()
         .timeout(Duration::from_millis(cfg.suzume_anki_timeout_ms))
+        .pool_max_idle_per_host(0)
         .build()
         .expect("failed to create Anki HTTP client");
 
@@ -84,6 +85,7 @@ async fn main() {
     let app = Router::new()
         .merge(health::router())
         .merge(anki::decks::router())
+        .merge(anki::media::router())
         .merge(practice::router())
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(X_REQUEST_ID))

@@ -2,6 +2,7 @@ import { Box, Button, Card, Dialog, Flex, IconButton, Text } from "@radix-ui/the
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
 import type { AssistantCard, PracticeMessage } from "../../hooks/usePracticeSocket";
+import { rewriteAnkiMedia } from "../../utils/ankiMedia";
 import styles from "./PracticeSession.module.css";
 
 type MessageBubbleProps = {
@@ -65,7 +66,7 @@ function CardInfoDialog({ card }: { card: AssistantCard }) {
                 </Text>
                 <div
                   className={styles.cardFieldHtml}
-                  dangerouslySetInnerHTML={{ __html: value }}
+                  dangerouslySetInnerHTML={{ __html: rewriteAnkiMedia(value) }}
                 />
               </Box>
             ))}
