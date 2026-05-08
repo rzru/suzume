@@ -47,7 +47,8 @@ type ServerFrame =
       card: AssistantCard;
       feedback?: PracticeFeedback | null;
     }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "scope_exhausted"; feedback?: PracticeFeedback | null };
 
 type UsePracticeSocketParams = {
   deckName: string;
@@ -94,6 +95,9 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
   const [status, setStatus] = useState<SocketStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [isAwaitingReply, setIsAwaitingReply] = useState(true);
+  const [scopeExhausted, setScopeExhausted] = useState(false);
+  const [finalFeedback, setFinalFeedback] = useState<PracticeFeedback | null>(null);
+  const [restartKey, setRestartKey] = useState(0);
 
   const socketRef = useRef<WebSocket | null>(null);
 
@@ -118,6 +122,8 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
     setError(null);
     setStatus("connecting");
     setIsAwaitingReply(true);
+    setScopeExhausted(false);
+    setFinalFeedback(null);
 
     const isActive = () => socketRef.current === socket;
 
@@ -145,6 +151,10 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
         } else if (parsed.type === "error") {
           setError(parsed.message);
           setIsAwaitingReply(false);
+        } else if (parsed.type === "scope_exhausted") {
+          setScopeExhausted(true);
+          setFinalFeedback(parsed.feedback ?? null);
+          setIsAwaitingReply(false);
         }
       } catch {
         setError("Received an unexpected message from the server.");
@@ -170,7 +180,7 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
         socket.close(1000, "navigation");
       }
     };
-  }, [url]);
+  }, [url, restartKey]);
 
   const send = useCallback((content: string) => {
     const trimmed = content.trim();
@@ -208,5 +218,19 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
     setError(null);
   }, []);
 
-  return { messages, status, error, send, skip, isAwaitingReply };
+  const restart = useCallback(() => {
+    setRestartKey((value) => value + 1);
+  }, []);
+
+  return {
+    messages,
+    status,
+    error,
+    send,
+    skip,
+    isAwaitingReply,
+    scopeExhausted,
+    finalFeedback,
+    restart,
+  };
 }

@@ -10,10 +10,12 @@ import type {
 import { findLastAssistantIndex } from "../../utils/practiceMessages";
 import { PracticeComposer } from "./PracticeComposer";
 import { PracticeMessageList } from "./PracticeMessageList";
+import { PracticeSessionComplete } from "./PracticeSessionComplete";
 import { PracticeSessionHeader } from "./PracticeSessionHeader";
 import styles from "./PracticeSession.module.css";
 
 type PracticeSessionProps = {
+  deckId: string;
   deckName: string;
   deckLabel: string;
   parents: string[];
@@ -24,6 +26,7 @@ type PracticeSessionProps = {
 };
 
 export function PracticeSession({
+  deckId,
   deckName,
   deckLabel,
   parents,
@@ -32,7 +35,17 @@ export function PracticeSession({
   scope,
   direction,
 }: PracticeSessionProps) {
-  const { messages, status, error, send, skip, isAwaitingReply } = usePracticeSocket({
+  const {
+    messages,
+    status,
+    error,
+    send,
+    skip,
+    isAwaitingReply,
+    scopeExhausted,
+    finalFeedback,
+    restart,
+  } = usePracticeSocket({
     deckName,
     mode,
     level,
@@ -40,8 +53,9 @@ export function PracticeSession({
     direction,
   });
 
-  const composerDisabled = status !== "open" || isAwaitingReply;
+  const composerDisabled = status !== "open" || isAwaitingReply || scopeExhausted;
   const canSkip = !composerDisabled && findLastAssistantIndex(messages) !== -1;
+  const hasShownCards = messages.some((message) => message.role === "assistant");
 
   const handleSkip = () => {
     if (!canSkip) return;
@@ -76,15 +90,24 @@ export function PracticeSession({
             status={status}
             isAwaitingReply={isAwaitingReply}
             canSkip={canSkip}
+            trailingFeedback={scopeExhausted ? finalFeedback : null}
             onSkip={handleSkip}
           />
 
-          <PracticeComposer
-            mode={mode}
-            direction={direction}
-            disabled={composerDisabled}
-            onSubmit={send}
-          />
+          {scopeExhausted ? (
+            <PracticeSessionComplete
+              deckId={deckId}
+              hasShownCards={hasShownCards}
+              onRestart={restart}
+            />
+          ) : (
+            <PracticeComposer
+              mode={mode}
+              direction={direction}
+              disabled={composerDisabled}
+              onSubmit={send}
+            />
+          )}
         </Flex>
       </Card>
     </Flex>

@@ -2,6 +2,8 @@ mod cards;
 mod feedback;
 mod session;
 
+use std::collections::HashSet;
+
 use axum::{
     Router,
     extract::{
@@ -102,7 +104,7 @@ enum ClientMessage {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
+#[serde(tag = "type", rename_all = "snake_case")]
 enum ServerMessage<'a> {
     Assistant {
         content: &'a str,
@@ -112,6 +114,10 @@ enum ServerMessage<'a> {
     },
     Error {
         message: &'a str,
+    },
+    ScopeExhausted {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        feedback: Option<&'a Feedback>,
     },
 }
 
@@ -159,7 +165,19 @@ async fn run_session(mut socket: WebSocket, state: AppState, params: PracticePar
         }
     };
 
-    if let Err(err) = run_turn(&mut socket, &sampler, &mut session, &params, None, None).await {
+    let mut seen: HashSet<i64> = HashSet::new();
+
+    if let Err(err) = run_turn(
+        &mut socket,
+        &sampler,
+        &mut session,
+        &params,
+        &mut seen,
+        None,
+        None,
+    )
+    .await
+    {
         warn!(?err, "first practice turn failed");
         return;
     }
@@ -213,6 +231,7 @@ async fn run_session(mut socket: WebSocket, state: AppState, params: PracticePar
             &sampler,
             &mut session,
             &params,
+            &mut seen,
             user_reply.as_deref(),
             feedback,
         )
@@ -231,13 +250,14 @@ async fn run_turn(
     sampler: &CardSampler,
     session: &mut PracticeSession,
     params: &PracticeParams,
+    seen: &mut HashSet<i64>,
     user_reply: Option<&str>,
     feedback: Option<Feedback>,
 ) -> Result<(), TurnError> {
-    let card = match sampler.pick_random(&params.deck, params.scope).await {
+    let card = match sampler.pick_random(&params.deck, params.scope, seen).await {
         Ok(Some(card)) => card,
         Ok(None) => {
-            send_error(socket, "no cards match the selected scope").await;
+            send_scope_exhausted(socket, feedback.as_ref()).await;
             return Err(TurnError::NoCards);
         }
         Err(err) => {
@@ -276,11 +296,20 @@ async fn run_turn(
         .await
         .map_err(|_| TurnError::Send)?;
 
+    seen.insert(card.id);
+
     Ok(())
 }
 
 async fn send_error(socket: &mut WebSocket, message: &str) {
     let payload = ServerMessage::Error { message };
+    if let Ok(json) = serde_json::to_string(&payload) {
+        let _ = socket.send(Message::text(json)).await;
+    }
+}
+
+async fn send_scope_exhausted(socket: &mut WebSocket, feedback: Option<&Feedback>) {
+    let payload = ServerMessage::ScopeExhausted { feedback };
     if let Ok(json) = serde_json::to_string(&payload) {
         let _ = socket.send(Message::text(json)).await;
     }

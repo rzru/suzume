@@ -1,8 +1,13 @@
 import { Flex, ScrollArea, Spinner, Text } from "@radix-ui/themes";
 import { useRef } from "react";
-import type { PracticeMessage, SocketStatus } from "../../hooks/usePracticeSocket";
+import type {
+  PracticeFeedback,
+  PracticeMessage,
+  SocketStatus,
+} from "../../hooks/usePracticeSocket";
 import { useAutoScrollToBottom } from "../../hooks/useAutoScrollToBottom";
 import { findLastAssistantIndex } from "../../utils/practiceMessages";
+import { FeedbackBanner } from "./FeedbackBanner";
 import { MessageBubble } from "./MessageBubble";
 import styles from "./PracticeMessageList.module.css";
 
@@ -11,6 +16,7 @@ type PracticeMessageListProps = {
   status: SocketStatus;
   isAwaitingReply: boolean;
   canSkip: boolean;
+  trailingFeedback: PracticeFeedback | null;
   onSkip: () => void;
 };
 
@@ -19,10 +25,11 @@ export function PracticeMessageList({
   status,
   isAwaitingReply,
   canSkip,
+  trailingFeedback,
   onSkip,
 }: PracticeMessageListProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  useAutoScrollToBottom(scrollRef, [messages.length, isAwaitingReply]);
+  useAutoScrollToBottom(scrollRef, [messages.length, isAwaitingReply, trailingFeedback]);
 
   const lastAssistantIndex = findLastAssistantIndex(messages);
 
@@ -42,6 +49,7 @@ export function PracticeMessageList({
             onSkip={index === lastAssistantIndex && canSkip ? onSkip : undefined}
           />
         ))}
+        {trailingFeedback && <FeedbackBanner feedback={trailingFeedback} />}
         {isAwaitingReply && status === "open" && (
           <Flex align="center" gap="2">
             <Spinner size="1" />

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anki_bridge::prelude::*;
 use rand::seq::IteratorRandom;
 use reqwest::Client;
@@ -153,6 +155,7 @@ impl CardSampler {
         &self,
         deck: &str,
         scope: CardScope,
+        exclude: &HashSet<i64>,
     ) -> Result<Option<PracticeCard>, SamplerError> {
         let anki = AnkiClient {
             endpoint: &self.endpoint,
@@ -170,7 +173,10 @@ impl CardSampler {
 
         let chosen = {
             let mut rng = rand::thread_rng();
-            card_ids.into_iter().choose(&mut rng)
+            card_ids
+                .into_iter()
+                .filter(|id| !exclude.contains(id))
+                .choose(&mut rng)
         };
 
         let Some(card_id) = chosen else {

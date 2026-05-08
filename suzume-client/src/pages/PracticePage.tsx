@@ -88,6 +88,7 @@ const PracticePageInner = () => {
     <>
       <title>{`Practice: ${fullDeckName} — Suzume`}</title>
       <PracticeSession
+        deckId={deckId}
         deckName={fullDeckName}
         deckLabel={lookup.deck.name}
         parents={lookup.parents}
