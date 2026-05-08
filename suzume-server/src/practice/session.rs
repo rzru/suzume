@@ -69,7 +69,7 @@ impl PracticeSession {
 
         let prompt_messages = self.assemble_prompt(ChatMessage::user(user_content));
 
-        let request = ChatMessageRequest::new(self.model.clone(), prompt_messages).think(false);
+        let request = ChatMessageRequest::new(self.model.clone(), prompt_messages);
 
         let response = self
             .ollama
@@ -139,21 +139,28 @@ fn system_prompt(
 ) -> String {
     let role_block = match (mode, direction) {
         (PracticeMode::Chat, _) => {
-            "ROLE: friendly language tutor in casual conversation.\n\
-            OUTPUT (every turn): one short reply (1-2 sentences) in the card's language that \
-            naturally uses the target word given that turn. Build on the learner's last \
-            message when it makes sense.\n\
+            "ROLE: friendly language tutor having an ongoing casual conversation with the \
+            learner.\n\
+            BEHAVIOUR: always reply in the card's language with one short message (1-2 \
+            sentences). Refer to the learner's last message when it makes sense, ask a \
+            follow-up question, or build on the topic so the conversation keeps going. Each \
+            turn you will be given a NEW target word to weave in naturally — never reuse a \
+            previous turn's target.\n\
             FORMAT: wrap the form of the target word you actually use in **double asterisks** \
-            (e.g. **example**). No other formatting, no quotes, no explanations."
+            (e.g. **example**). No other formatting, no quotes, no meta commentary."
         }
         (PracticeMode::Translate, Some(TranslateDirection::From))
         | (PracticeMode::Translate, None) => {
             "ROLE: language tutor producing example sentences.\n\
             OUTPUT (every turn): exactly ONE short, natural sentence in the card's language \
             that uses the target word given that turn.\n\
-            FORMAT: wrap the form of the target word you actually use in **double asterisks** \
-            (e.g. **example**). No prefix, no translation, no explanation, no quotes, no \
-            other formatting."
+            FORMAT — MANDATORY, never skip even when reasoning about style: in your final \
+            answer the form of the target word you actually use MUST be wrapped in **double \
+            asterisks** so the UI can highlight it. Always include the asterisks. Example — \
+            target word \"run\": I like to **run** in the morning. Apply the same wrapping \
+            for any target word in any language (e.g. target \"бежать\" → Я люблю **бежать** \
+            утром). No prefix, no translation, no explanation, no quotes, no other \
+            formatting."
         }
         (PracticeMode::Translate, Some(TranslateDirection::To)) => {
             "ROLE: language tutor producing reverse-translation drills.\n\
@@ -167,15 +174,24 @@ fn system_prompt(
         }
     };
 
-    format!(
-        "{role_block}\n\n\
-        LEARNER LEVEL: CEFR {level}. The level constraints below are absolute, even when the \
-        target word itself sits above the level — keep every other word inside the allowed \
-        range.\n\n\
-        {level_block}",
-        level = level.label(),
-        level_block = level_guidance(level),
-    )
+    let level_block = match mode {
+        PracticeMode::Chat => format!(
+            "LEARNER LEVEL: CEFR {level}. Match the learner's vocabulary and grammar to that \
+            level, but keep replies natural and conversational — short follow-up questions \
+            are encouraged when they help the chat flow.",
+            level = level.label(),
+        ),
+        PracticeMode::Translate => format!(
+            "LEARNER LEVEL: CEFR {level}. The level constraints below are absolute, even when \
+            the target word itself sits above the level — keep every other word inside the \
+            allowed range.\n\n\
+            {guidance}",
+            level = level.label(),
+            guidance = level_guidance(level),
+        ),
+    };
+
+    format!("{role_block}\n\n{level_block}")
 }
 
 fn level_guidance(level: ProficiencyLevel) -> &'static str {
@@ -257,12 +273,58 @@ fn build_user_message(
     card: &PracticeCard,
     user_reply: Option<&str>,
 ) -> String {
+    match mode {
+        PracticeMode::Chat => build_chat_user_message(card, user_reply),
+        PracticeMode::Translate => build_translate_user_message(direction, card),
+    }
+}
+
+fn build_chat_user_message(card: &PracticeCard, user_reply: Option<&str>) -> String {
+    let target_label = if card.target.is_empty() {
+        "(empty card — pick any salient word from the card fields below)".to_owned()
+    } else {
+        format!("\"{}\"", card.target)
+    };
+
+    let phrase_hint = if card.target.contains(char::is_whitespace) {
+        " If the card looks like a full sentence or phrase, identify the actual focus word \
+        inside it and use that single word."
+    } else {
+        ""
+    };
+
+    let blob = card.fields_blob();
+    let card_block = if blob.is_empty() {
+        String::new()
+    } else {
+        format!("\n\nCurrent flashcard (context only — do not list back):\n{blob}")
+    };
+
+    let instruction = format!(
+        "[TUTOR INSTRUCTION]\n\
+        NEW target word for your next reply ONLY: {target_label}. Ignore every previous \
+        target word.\n\
+        Continue the conversation in the card's language with one short reply (1-2 sentences) \
+        that naturally uses the new target word and, when it fits, asks a short follow-up \
+        question.{phrase_hint}{card_block}\n\
+        [/TUTOR INSTRUCTION]"
+    );
+
+    match user_reply {
+        Some(reply) => format!("{reply}\n\n{instruction}"),
+        None => instruction,
+    }
+}
+
+fn build_translate_user_message(
+    direction: Option<TranslateDirection>,
+    card: &PracticeCard,
+) -> String {
+    let is_reverse = matches!(direction, Some(TranslateDirection::To));
+
     let target_line = if card.target.is_empty() {
         "Target word: (empty card — pick any salient word from the card fields)".to_owned()
-    } else if matches!(
-        (mode, direction),
-        (PracticeMode::Translate, Some(TranslateDirection::To))
-    ) {
+    } else if is_reverse {
         format!("Target word (in the card's language): {}", card.target)
     } else {
         format!("Target word: {}", card.target)
@@ -286,8 +348,18 @@ fn build_user_message(
         );
     }
 
-    match (mode, user_reply) {
-        (PracticeMode::Chat, Some(reply)) => format!("{reply}\n\n---\n{card_section}"),
-        _ => card_section,
+    if !is_reverse {
+        let example = if card.target.is_empty() {
+            "**word**".to_owned()
+        } else {
+            format!("**{}**", card.target)
+        };
+        card_section.push_str(&format!(
+            "\n\nFORMAT REMINDER (MANDATORY): in your final reply, wrap the exact form of the \
+            target word you use in **double asterisks** ({example} or whatever inflected form \
+            you actually use). Do not omit the asterisks. No other markdown."
+        ));
     }
+
+    card_section
 }
