@@ -40,6 +40,7 @@ pub struct PracticeSession {
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
     target_language: Option<String>,
+    think: bool,
     last_assistant: Option<String>,
     last_target: Option<String>,
 }
@@ -68,6 +69,7 @@ impl PracticeSession {
             mode: params.mode,
             direction: params.direction,
             target_language: params.target_language.clone(),
+            think: params.think,
             last_assistant: None,
             last_target: None,
         })
@@ -101,7 +103,8 @@ impl PracticeSession {
 
         let prompt_messages = self.assemble_prompt(ChatMessage::user(user_content));
 
-        let request = ChatMessageRequest::new(self.model.clone(), prompt_messages);
+        let request =
+            ChatMessageRequest::new(self.model.clone(), prompt_messages).think(self.think);
 
         let response = self
             .ollama
@@ -149,7 +152,7 @@ impl PracticeSession {
             ChatMessage::user(prompt),
         ];
 
-        let request = ChatMessageRequest::new(self.model.clone(), messages);
+        let request = ChatMessageRequest::new(self.model.clone(), messages).think(self.think);
 
         let response = self
             .ollama

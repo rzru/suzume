@@ -83,6 +83,10 @@ where
         .filter(|trimmed| !trimmed.is_empty()))
 }
 
+fn default_think() -> bool {
+    true
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PracticeParams {
     pub deck: String,
@@ -94,6 +98,8 @@ pub struct PracticeParams {
     pub model: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_string")]
     pub target_language: Option<String>,
+    #[serde(default = "default_think")]
+    pub think: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -147,6 +153,7 @@ async fn ws_practice(
         level = ?params.level,
         scope = ?params.scope,
         direction = ?params.direction,
+        think = params.think,
         "practice ws upgrade",
     );
 

@@ -21,9 +21,7 @@ export function PracticeComposer({ mode, direction, disabled, onSubmit }: Practi
   useAutoResizeTextarea(inputRef, draft);
 
   useEffect(() => {
-    if (!disabled) {
-      inputRef.current?.focus();
-    }
+    inputRef.current?.focus();
   }, [disabled]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -38,6 +36,7 @@ export function PracticeComposer({ mode, direction, disabled, onSubmit }: Practi
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
+      if (disabled) return;
       formRef.current?.requestSubmit();
     }
   };
@@ -51,7 +50,6 @@ export function PracticeComposer({ mode, direction, disabled, onSubmit }: Practi
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={disabled}
         resize="none"
         rows={1}
         className={styles.composerInput}

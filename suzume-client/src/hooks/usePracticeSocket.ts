@@ -61,6 +61,7 @@ type UsePracticeSocketParams = {
 type BuildPracticeUrlParams = UsePracticeSocketParams & {
   model: string | null;
   targetLanguage: string | null;
+  think: boolean;
 };
 
 const buildPracticeUrl = (params: BuildPracticeUrlParams): string => {
@@ -79,6 +80,7 @@ const buildPracticeUrl = (params: BuildPracticeUrlParams): string => {
   if (params.targetLanguage) {
     search.set("target_language", params.targetLanguage);
   }
+  search.set("think", String(params.think));
   return buildWsUrl(`/ws/practice?${search.toString()}`);
 };
 
@@ -89,7 +91,7 @@ const newId = () =>
 
 export function usePracticeSocket(params: UsePracticeSocketParams) {
   const { deckName, mode, level, scope, direction } = params;
-  const { model, targetLanguage } = useAppSettings();
+  const { model, targetLanguage, think } = useAppSettings();
 
   const [messages, setMessages] = useState<PracticeMessage[]>([]);
   const [status, setStatus] = useState<SocketStatus>("connecting");
@@ -111,8 +113,9 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
         direction,
         model,
         targetLanguage,
+        think,
       }),
-    [deckName, mode, level, scope, direction, model, targetLanguage],
+    [deckName, mode, level, scope, direction, model, targetLanguage, think],
   );
 
   useEffect(() => {

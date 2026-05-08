@@ -8,6 +8,7 @@ import {
   IconButton,
   Select,
   Spinner,
+  Switch,
   Text,
 } from "@radix-ui/themes";
 import { ExclamationTriangleIcon, GearIcon, ReloadIcon } from "@radix-ui/react-icons";
@@ -37,19 +38,21 @@ const TARGET_LANGUAGES: { code: string; label: string }[] = [
 
 export function SettingsDialog() {
   const [open, setOpen] = useState(false);
-  const { model, targetLanguage, setModel, setTargetLanguage } = useAppSettings();
+  const { model, targetLanguage, think, setModel, setTargetLanguage, setThink } = useAppSettings();
 
   const { data, isFetching, isError, refetch } = useAvailableModelsQuery(open);
 
   const [draftModel, setDraftModel] = useState<string | null>(model);
   const [draftLanguage, setDraftLanguage] = useState<string | null>(targetLanguage);
+  const [draftThink, setDraftThink] = useState<boolean>(think);
 
   useEffect(() => {
     if (open) {
       setDraftModel(model);
       setDraftLanguage(targetLanguage);
+      setDraftThink(think);
     }
-  }, [open, model, targetLanguage]);
+  }, [open, model, targetLanguage, think]);
 
   const modelOptions = useMemo(() => {
     const fetched = data?.models?.map((m) => m.name) ?? [];
@@ -63,6 +66,7 @@ export function SettingsDialog() {
   const handleSave = () => {
     setModel(draftModel);
     setTargetLanguage(draftLanguage);
+    setThink(draftThink);
     setOpen(false);
   };
 
@@ -146,6 +150,19 @@ export function SettingsDialog() {
             <Text as="p" size="1" color="gray" mt="1">
               Used in translate "Into another language" mode. Other modes always use the card's
               language.
+            </Text>
+          </Box>
+
+          <Box>
+            <Flex align="center" justify="between" gap="3">
+              <Text as="label" size="2" weight="medium" htmlFor="think-toggle">
+                Reasoning ("think")
+              </Text>
+              <Switch id="think-toggle" checked={draftThink} onCheckedChange={setDraftThink} />
+            </Flex>
+            <Text as="p" size="1" color="gray" mt="1">
+              Some models (e.g. qwen3, deepseek-r1) reason before answering. Turning this off speeds
+              up replies but may reduce quality.
             </Text>
           </Box>
         </Flex>
