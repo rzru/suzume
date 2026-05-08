@@ -20,6 +20,7 @@ type PracticeSessionHeaderProps = {
 };
 
 const SCOPE_LABELS: Record<CardScope, string> = {
+  learned: "Learned today",
   today: "Reviewed today",
   all: "All known",
 };

@@ -45,6 +45,7 @@ struct DeckCountsParams {
 struct DeckCountsResponse {
     today: usize,
     all: usize,
+    learned: usize,
 }
 
 pub fn router() -> Router<AppState> {
@@ -93,8 +94,12 @@ async fn get_anki_deck_counts(
     let ever_reviewed_fut = anki.request(FindCardsRequest {
         query: format!("deck:\"{}\" prop:reps>0", escaped_name),
     });
+    let introduced_today_fut = anki.request(FindCardsRequest {
+        query: format!("deck:\"{}\" introduced:1", escaped_name),
+    });
 
-    let (rated_today, ever_reviewed) = tokio::join!(rated_today_fut, ever_reviewed_fut);
+    let (rated_today, ever_reviewed, introduced_today) =
+        tokio::join!(rated_today_fut, ever_reviewed_fut, introduced_today_fut);
 
     let rated_today = match rated_today {
         Ok(value) => value,
@@ -104,12 +109,17 @@ async fn get_anki_deck_counts(
         Ok(value) => value,
         Err(error) => return anki_error(error),
     };
+    let introduced_today = match introduced_today {
+        Ok(value) => value,
+        Err(error) => return anki_error(error),
+    };
 
     (
         StatusCode::OK,
         Json(DeckCountsResponse {
             today: rated_today.len(),
             all: ever_reviewed.len(),
+            learned: introduced_today.len(),
         }),
     )
         .into_response()

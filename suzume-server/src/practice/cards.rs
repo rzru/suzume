@@ -163,6 +163,7 @@ impl CardSampler {
         let query = match scope {
             CardScope::Today => format!("deck:\"{}\" rated:1", escaped),
             CardScope::All => format!("deck:\"{}\" prop:reps>0", escaped),
+            CardScope::Learned => format!("deck:\"{}\" introduced:1", escaped),
         };
 
         let card_ids = anki.request(FindCardsRequest { query }).await?;

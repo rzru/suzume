@@ -31,7 +31,7 @@ A tiny bird quietly doing real language felt like the right mascot for a tool th
   - **Translate** — go from your native language to your target language, or the other way around.
   - **Construct** — build sentences around a given word.
 - **Proficiency levels A1 → C2**, so prompts match where you actually are.
-- **Scope to today's due cards** or to the **whole deck**.
+- **Scope** to cards you **learned today**, **reviewed today**, or to **everything you've ever studied** in the deck.
 - **Live, streaming feedback** over WebSocket — corrections appear as you type.
 - **Pluggable model and target language** picked from the in-app settings dialog (any model you've pulled with `ollama pull` works).
 - **LAN-only by default** — Suzume binds to your host and uses CORS to gate access.

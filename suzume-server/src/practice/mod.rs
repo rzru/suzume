@@ -61,6 +61,7 @@ impl ProficiencyLevel {
 pub enum CardScope {
     Today,
     All,
+    Learned,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

@@ -4,6 +4,7 @@ import { fetchJson } from "./fetchJson";
 export type DeckCounts = {
   today: number;
   all: number;
+  learned: number;
 };
 
 const getDeckCountsUrl = (deckName: string): string =>

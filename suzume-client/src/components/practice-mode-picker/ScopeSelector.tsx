@@ -5,6 +5,7 @@ import { CARD_SCOPES, type CardScope } from "../../utils/practice";
 import styles from "./ScopeSelector.module.css";
 
 const SCOPE_LABELS: Record<CardScope, string> = {
+  learned: "Learned today",
   today: "Reviewed today",
   all: "All known",
 };
@@ -44,7 +45,7 @@ export function ScopeSelector({ value, onChange, counts, isPending, error }: Sco
           <Callout.Text>{error.message ?? "Couldn't load deck counts from Anki"}</Callout.Text>
         </Callout.Root>
       ) : null}
-      <Grid columns={{ initial: "1", sm: "2" }} gap="2">
+      <Grid columns={{ initial: "1", sm: "3" }} gap="2">
         {CARD_SCOPES.map((scope) => {
           const isActive = value === scope;
           const disabled = isScopeDisabled(scope);
