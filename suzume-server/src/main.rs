@@ -1,5 +1,6 @@
 mod anki;
 mod health;
+mod practice;
 mod state;
 
 use std::{
@@ -34,6 +35,7 @@ struct Config {
     suzume_anki_timeout_ms: u64,
     suzume_allowed_origins: Vec<String>,
     ollama_base_url: String,
+    ollama_model: String,
     anki_connect_url: String,
 }
 
@@ -49,6 +51,7 @@ impl Default for Config {
                 "http://127.0.0.1:5173".into(),
             ],
             ollama_base_url: "http://127.0.0.1:11434".into(),
+            ollama_model: "qwen3".into(),
             anki_connect_url: "http://127.0.0.1:8765".into(),
         }
     }
@@ -74,12 +77,14 @@ async fn main() {
         http_client,
         anki_http_client,
         ollama_base_url: cfg.ollama_base_url,
+        ollama_model: cfg.ollama_model,
         anki_connect_url: cfg.anki_connect_url,
     };
 
     let app = Router::new()
         .merge(health::router())
         .merge(anki::decks::router())
+        .merge(practice::router())
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(X_REQUEST_ID))
         .layer(SetRequestIdLayer::new(X_REQUEST_ID, MakeRequestUuid))

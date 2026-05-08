@@ -1,16 +1,17 @@
-import { Badge, Box, Callout, Card, Flex, Heading, Text } from "@radix-ui/themes";
-import { ExclamationTriangleIcon, StackIcon } from "@radix-ui/react-icons";
+import { Callout } from "@radix-ui/themes";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import { Navigate, useParams } from "react-router-dom";
 import { AppShell } from "../components/app-shell";
 import { DecksSidebar } from "../components/decks-sidebar";
-import { isCardScope, isPracticeMode, isProficiencyLevel } from "../utils/practice";
-import { findDeckById } from "../utils/decks";
+import { PracticeSession } from "../components/practice-session";
+import {
+  isCardScope,
+  isPracticeMode,
+  isProficiencyLevel,
+  isTranslateDirection,
+} from "../utils/practice";
+import { findDeckById, partsToFullName } from "../utils/decks";
 import { useDecksTreeQuery } from "../hooks/useDecksTreeQuery";
-
-const SCOPE_LABELS = {
-  today: "Reviewed today",
-  all: "All known",
-} as const;
 
 export function PracticePage() {
   const { data } = useDecksTreeQuery();
@@ -23,7 +24,13 @@ export function PracticePage() {
 }
 
 const PracticePageInner = () => {
-  const params = useParams<{ deckId: string; mode: string; level: string; scope: string }>();
+  const params = useParams<{
+    deckId: string;
+    mode: string;
+    level: string;
+    scope: string;
+    direction?: string;
+  }>();
   const { isPending, error, data } = useDecksTreeQuery();
 
   if (isPending) {
@@ -41,10 +48,18 @@ const PracticePageInner = () => {
     );
   }
 
-  const { deckId, mode, level, scope } = params;
+  const { deckId, mode, level, scope, direction } = params;
 
   if (!deckId || !isPracticeMode(mode) || !isProficiencyLevel(level) || !isCardScope(scope)) {
     return <Navigate to={deckId ? `/decks/${deckId}` : "/"} replace />;
+  }
+
+  if (mode === "translate" && !isTranslateDirection(direction)) {
+    return <Navigate to={`/decks/${deckId}`} replace />;
+  }
+
+  if (mode !== "translate" && direction !== undefined) {
+    return <Navigate to={`/decks/${deckId}`} replace />;
   }
 
   const numericId = Number(deckId);
@@ -61,44 +76,17 @@ const PracticePageInner = () => {
     );
   }
 
-  const breadcrumb = lookup.parents.length > 0 ? lookup.parents.join(" / ") : "Top-level deck";
-  const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
-  const scopeLabel = SCOPE_LABELS[scope];
+  const fullDeckName = partsToFullName([...lookup.parents, lookup.deck.name]);
 
   return (
-    <Flex direction="column" gap="5">
-      <Box>
-        <Flex align="center" gap="2">
-          <StackIcon />
-          <Heading size="6">{lookup.deck.name}</Heading>
-        </Flex>
-        <Text size="2" color="gray">
-          {breadcrumb}
-        </Text>
-      </Box>
-
-      <Card size="3">
-        <Flex direction="column" gap="3">
-          <Flex align="center" gap="2">
-            <Badge color="iris" variant="soft">
-              {modeLabel}
-            </Badge>
-            <Badge color="gray" variant="soft">
-              {level.toUpperCase()}
-            </Badge>
-            <Badge color="grass" variant="soft">
-              {scopeLabel}
-            </Badge>
-          </Flex>
-          <Text size="3" weight="medium">
-            Practice coming soon
-          </Text>
-          <Text size="2" color="gray">
-            This page will host the {modeLabel.toLowerCase()} session at level {level.toUpperCase()}{" "}
-            for {lookup.deck.name}.
-          </Text>
-        </Flex>
-      </Card>
-    </Flex>
+    <PracticeSession
+      deckName={fullDeckName}
+      deckLabel={lookup.deck.name}
+      parents={lookup.parents}
+      mode={mode}
+      level={level}
+      scope={scope}
+      direction={isTranslateDirection(direction) ? direction : null}
+    />
   );
 };

@@ -5,5 +5,6 @@ pub struct AppState {
     pub http_client: Client,
     pub anki_http_client: Client,
     pub ollama_base_url: String,
+    pub ollama_model: String,
     pub anki_connect_url: String,
 }

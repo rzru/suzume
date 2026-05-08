@@ -10,7 +10,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<DecksPage />} />
         <Route path="/decks/:deckId" element={<DecksPage />} />
-        <Route path="/decks/:deckId/:mode/:level/:scope" element={<PracticePage />} />
+        <Route path="/decks/:deckId/:mode/:level/:scope/:direction?" element={<PracticePage />} />
         <Route path="/status" element={<StatusPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
