@@ -3,15 +3,23 @@ import {
   Box,
   Button,
   Callout,
+  Card,
   Flex,
   Heading,
   ScrollArea,
   Spinner,
   Text,
-  TextField,
+  TextArea,
 } from "@radix-ui/themes";
 import { ExclamationTriangleIcon, PaperPlaneIcon, StackIcon } from "@radix-ui/react-icons";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { usePracticeSocket } from "../../hooks/usePracticeSocket";
 import type {
   CardScope,
@@ -61,7 +69,8 @@ export function PracticeSession({
 
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -75,6 +84,13 @@ export function PracticeSession({
     }
   }, [status, isAwaitingReply]);
 
+  useLayoutEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [draft]);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (status !== "open" || isAwaitingReply) return;
@@ -84,100 +100,105 @@ export function PracticeSession({
     setDraft("");
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  };
+
   const breadcrumb = parents.length > 0 ? parents.join(" / ") : "Top-level deck";
   const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
 
   const composerDisabled = status !== "open" || isAwaitingReply;
 
   return (
-    <Flex justify="center" height="100%">
-      <Flex
-        direction="column"
-        gap="4"
-        height="100%"
-        width="100%"
-        maxWidth="720px"
-        className={styles.session}
-      >
-        <Box>
-          <Flex align="center" gap="2">
-            <StackIcon />
-            <Heading size="5">{deckLabel}</Heading>
-          </Flex>
-          <Text size="2" color="gray">
-            {breadcrumb}
-          </Text>
-        </Box>
+    <Flex justify="center" align={{ initial: "stretch", md: "center" }} height="100%">
+      <Card size="3" className={styles.session}>
+        <Flex direction="column" gap="4" height="100%" minHeight="0">
+          <Box>
+            <Flex align="center" gap="2">
+              <StackIcon />
+              <Heading size="5">{deckLabel}</Heading>
+            </Flex>
+            <Text size="2" color="gray">
+              {breadcrumb}
+            </Text>
+          </Box>
 
-        <Flex align="center" gap="2" wrap="wrap">
-          <Badge color="iris" variant="soft">
-            {modeLabel}
-          </Badge>
-          <Badge color="gray" variant="soft">
-            {level.toUpperCase()}
-          </Badge>
-          <Badge color="grass" variant="soft">
-            {SCOPE_LABELS[scope]}
-          </Badge>
-          {direction && (
-            <Badge color="amber" variant="soft">
-              {DIRECTION_LABELS[direction]}
+          <Flex align="center" gap="2" wrap="wrap">
+            <Badge color="iris" variant="soft">
+              {modeLabel}
             </Badge>
-          )}
-          <SocketStatusBadge status={status} />
-        </Flex>
-
-        {error !== null && (
-          <Callout.Root color="amber" size="1">
-            <Callout.Icon>
-              <ExclamationTriangleIcon />
-            </Callout.Icon>
-            <Callout.Text>{error}</Callout.Text>
-          </Callout.Root>
-        )}
-
-        <ScrollArea type="auto" scrollbars="vertical" className={styles.scroller} ref={scrollRef}>
-          <Flex direction="column" gap="3" pr="3">
-            {messages.length === 0 && status === "connecting" && (
-              <Flex justify="center" align="center" gap="2">
-                <Spinner size="2" />
-                <Text color="gray">Connecting to practice session...</Text>
-              </Flex>
+            <Badge color="gray" variant="soft">
+              {level.toUpperCase()}
+            </Badge>
+            <Badge color="grass" variant="soft">
+              {SCOPE_LABELS[scope]}
+            </Badge>
+            {direction && (
+              <Badge color="amber" variant="soft">
+                {DIRECTION_LABELS[direction]}
+              </Badge>
             )}
-            {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))}
-            {isAwaitingReply && status === "open" && (
-              <Flex align="center" gap="2">
-                <Spinner size="1" />
-                <Text size="2" color="gray">
-                  Thinking...
-                </Text>
-              </Flex>
-            )}
+            <SocketStatusBadge status={status} />
           </Flex>
-        </ScrollArea>
 
-        <form onSubmit={handleSubmit} className={styles.composer}>
-          <TextField.Root
-            ref={inputRef}
-            size="3"
-            placeholder={
-              mode === "translate" && direction === "to"
-                ? "Translate the sentence back..."
-                : "Type your reply..."
-            }
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            disabled={composerDisabled}
-            className={styles.composerInput}
-          />
-          <Button type="submit" size="3" disabled={composerDisabled || draft.trim().length === 0}>
-            <PaperPlaneIcon />
-            Send
-          </Button>
-        </form>
-      </Flex>
+          {error !== null && (
+            <Callout.Root color="amber" size="1">
+              <Callout.Icon>
+                <ExclamationTriangleIcon />
+              </Callout.Icon>
+              <Callout.Text>{error}</Callout.Text>
+            </Callout.Root>
+          )}
+
+          <ScrollArea type="auto" scrollbars="vertical" className={styles.scroller} ref={scrollRef}>
+            <Flex direction="column" gap="3" pr="3">
+              {messages.length === 0 && status === "connecting" && (
+                <Flex justify="center" align="center" gap="2">
+                  <Spinner size="2" />
+                  <Text color="gray">Connecting to practice session...</Text>
+                </Flex>
+              )}
+              {messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))}
+              {isAwaitingReply && status === "open" && (
+                <Flex align="center" gap="2">
+                  <Spinner size="1" />
+                  <Text size="2" color="gray">
+                    Thinking...
+                  </Text>
+                </Flex>
+              )}
+            </Flex>
+          </ScrollArea>
+
+          <form ref={formRef} onSubmit={handleSubmit} className={styles.composer}>
+            <TextArea
+              ref={inputRef}
+              size="3"
+              placeholder={
+                mode === "translate" && direction === "to"
+                  ? "Translate the sentence back..."
+                  : "Type your reply..."
+              }
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={composerDisabled}
+              resize="none"
+              rows={1}
+              className={styles.composerInput}
+            />
+            <Button type="submit" size="3" disabled={composerDisabled || draft.trim().length === 0}>
+              <PaperPlaneIcon />
+              <span className={styles.composerSendLabel}>Send</span>
+            </Button>
+          </form>
+        </Flex>
+      </Card>
     </Flex>
   );
 }

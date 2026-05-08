@@ -6,6 +6,7 @@ import styles from "./DecksSidebar.module.css";
 
 type DecksSidebarProps = {
   decks: DeckNode[];
+  onNavigate?: () => void;
 };
 
 function countDecks(nodes: DeckNode[]): number {
@@ -16,7 +17,7 @@ function countDecks(nodes: DeckNode[]): number {
   return total;
 }
 
-export function DecksSidebar({ decks }: DecksSidebarProps) {
+export function DecksSidebar({ decks, onNavigate }: DecksSidebarProps) {
   const totalDecks = countDecks(decks);
 
   return (
@@ -37,7 +38,7 @@ export function DecksSidebar({ decks }: DecksSidebarProps) {
             No decks yet
           </Text>
         ) : (
-          <DeckTree nodes={decks} />
+          <DeckTree nodes={decks} onNavigate={onNavigate} />
         )}
       </ScrollArea>
     </Flex>

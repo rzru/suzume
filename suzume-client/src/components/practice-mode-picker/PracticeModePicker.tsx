@@ -46,7 +46,7 @@ export function PracticeModePicker({ deckId, deckName, parents }: PracticeModePi
   } = useDeckCountsQuery(deckId, fullDeckName);
 
   return (
-    <Flex align="center" justify="center" minHeight="100%" p="4">
+    <Flex align="center" justify="center" minHeight="100%" p={{ initial: "2", sm: "4" }}>
       <Flex direction="column" gap="5" width="100%" maxWidth="640px">
         <DeckHeader deckName={deckName} parents={parents} />
 

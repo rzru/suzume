@@ -84,7 +84,49 @@ function CardInfoDialog({ card }: { card: AssistantCard }) {
   );
 }
 
+const MARKER_REGEX = /\*\*([^*]+)\*\*/g;
+
 function renderWithHighlight(content: string, target: string): ReactNode {
+  const markerParts = renderWithMarkers(content);
+  if (markerParts !== null) {
+    return markerParts;
+  }
+
+  return renderWithSubstring(content, target);
+}
+
+function renderWithMarkers(content: string): ReactNode[] | null {
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let key = 0;
+  let matched = false;
+
+  for (const match of content.matchAll(MARKER_REGEX)) {
+    matched = true;
+    const start = match.index ?? 0;
+    if (start > cursor) {
+      parts.push(content.slice(cursor, start));
+    }
+    parts.push(
+      <mark key={`hl-${key++}`} className={styles.targetHighlight}>
+        {match[1]}
+      </mark>,
+    );
+    cursor = start + match[0].length;
+  }
+
+  if (!matched) {
+    return null;
+  }
+
+  if (cursor < content.length) {
+    parts.push(content.slice(cursor));
+  }
+
+  return parts;
+}
+
+function renderWithSubstring(content: string, target: string): ReactNode {
   const trimmed = target.trim();
   if (!trimmed) {
     return content;

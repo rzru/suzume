@@ -5,7 +5,11 @@ use ollama_rs::{
 
 use crate::state::AppState;
 
-use super::{PracticeMode, PracticeParams, ProficiencyLevel, TranslateDirection, cards::PracticeCard};
+use super::{
+    PracticeMode, PracticeParams, ProficiencyLevel, TranslateDirection, cards::PracticeCard,
+};
+
+const CHAT_HISTORY_TURNS: usize = 4;
 
 #[derive(Debug)]
 pub enum SessionError {
@@ -27,6 +31,7 @@ impl std::error::Error for SessionError {}
 pub struct PracticeSession {
     ollama: Ollama,
     model: String,
+    system: ChatMessage,
     history: Vec<ChatMessage>,
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
@@ -36,16 +41,14 @@ impl PracticeSession {
     pub fn new(state: &AppState, params: &PracticeParams) -> Result<Self, SessionError> {
         let ollama = Ollama::try_new(state.ollama_base_url.as_str())
             .map_err(|err| SessionError::OllamaInit(err.to_string()))?;
-        let history = vec![ChatMessage::system(system_prompt(
-            params.mode,
-            params.level,
-            params.direction,
-        ))];
+        let system =
+            ChatMessage::system(system_prompt(params.mode, params.level, params.direction));
 
         Ok(Self {
             ollama,
             model: state.ollama_model.clone(),
-            history,
+            system,
+            history: Vec::new(),
             mode: params.mode,
             direction: params.direction,
         })
@@ -61,17 +64,12 @@ impl PracticeSession {
             .filter(|reply| !reply.is_empty())
             .map(str::to_owned);
 
-        let instruction = turn_instruction(self.mode, self.direction, card);
+        let user_content =
+            build_user_message(self.mode, self.direction, card, cleaned_reply.as_deref());
 
-        let final_user_content = match cleaned_reply.as_deref() {
-            Some(reply) => format!("{reply}\n\n{instruction}"),
-            None => instruction,
-        };
+        let prompt_messages = self.assemble_prompt(ChatMessage::user(user_content));
 
-        let mut prompt_messages = self.history.clone();
-        prompt_messages.push(ChatMessage::user(final_user_content));
-
-        let request = ChatMessageRequest::new(self.model.clone(), prompt_messages);
+        let request = ChatMessageRequest::new(self.model.clone(), prompt_messages).think(false);
 
         let response = self
             .ollama
@@ -79,13 +77,59 @@ impl PracticeSession {
             .await
             .map_err(SessionError::Ollama)?;
 
-        if let Some(reply) = cleaned_reply {
-            self.history.push(ChatMessage::user(reply));
-        }
-        self.history.push(response.message.clone());
+        let mut stored = response.message.clone();
+        stored.content = strip_thinking(&stored.content);
 
-        Ok(response.message.content)
+        if matches!(self.mode, PracticeMode::Chat) {
+            if let Some(reply) = cleaned_reply {
+                self.history.push(ChatMessage::user(reply));
+            }
+            self.history.push(stored.clone());
+            self.trim_history();
+        }
+
+        Ok(stored.content)
     }
+
+    fn assemble_prompt(&self, current: ChatMessage) -> Vec<ChatMessage> {
+        let mut prompt = Vec::with_capacity(self.history.len() + 2);
+        prompt.push(self.system.clone());
+        if matches!(self.mode, PracticeMode::Chat) {
+            prompt.extend(self.history.iter().cloned());
+        }
+        prompt.push(current);
+        prompt
+    }
+
+    fn trim_history(&mut self) {
+        let max_messages = CHAT_HISTORY_TURNS * 2;
+        if self.history.len() > max_messages {
+            let drop_n = self.history.len() - max_messages;
+            self.history.drain(..drop_n);
+        }
+    }
+}
+
+fn strip_thinking(content: &str) -> String {
+    let mut out = String::with_capacity(content.len());
+    let mut rest = content;
+
+    while let Some(open) = rest.find("<think>") {
+        out.push_str(&rest[..open]);
+        let after_open = &rest[open + "<think>".len()..];
+        match after_open.find("</think>") {
+            Some(close) => {
+                rest = &after_open[close + "</think>".len()..];
+            }
+            None => {
+                rest = "";
+                break;
+            }
+        }
+    }
+
+    out.push_str(rest);
+    out.trim().to_owned()
 }
 
 fn system_prompt(
@@ -93,91 +137,157 @@ fn system_prompt(
     level: ProficiencyLevel,
     direction: Option<TranslateDirection>,
 ) -> String {
-    let mode_block = match (mode, direction) {
+    let role_block = match (mode, direction) {
         (PracticeMode::Chat, _) => {
-            "You are a friendly language tutor having an ongoing casual conversation with the \
-            learner. Reply in the language of the card with one short message (1-2 sentences). \
-            Refer to the learner's last message when it makes sense, ask follow-up questions, \
-            or build on the topic."
+            "ROLE: friendly language tutor in casual conversation.\n\
+            OUTPUT (every turn): one short reply (1-2 sentences) in the card's language that \
+            naturally uses the target word given that turn. Build on the learner's last \
+            message when it makes sense.\n\
+            FORMAT: wrap the form of the target word you actually use in **double asterisks** \
+            (e.g. **example**). No other formatting, no quotes, no explanations."
         }
-        (PracticeMode::Translate, Some(TranslateDirection::From)) => {
-            "You are a language tutor producing example sentences. Output ONE short, natural \
-            sentence in the language of the card that uses the requested target word. Output \
-            only the sentence — no prefix, no translation, no explanation, no quotes."
+        (PracticeMode::Translate, Some(TranslateDirection::From))
+        | (PracticeMode::Translate, None) => {
+            "ROLE: language tutor producing example sentences.\n\
+            OUTPUT (every turn): exactly ONE short, natural sentence in the card's language \
+            that uses the target word given that turn.\n\
+            FORMAT: wrap the form of the target word you actually use in **double asterisks** \
+            (e.g. **example**). No prefix, no translation, no explanation, no quotes, no \
+            other formatting."
         }
         (PracticeMode::Translate, Some(TranslateDirection::To)) => {
-            "You are a language tutor producing reverse-translation drills. Pick a language \
-            OTHER than the card's language (default to English; if the card itself is in \
-            English, use Spanish). Output exactly ONE short sentence written ENTIRELY in that \
-            other language, chosen so that when the learner translates it back into the card's \
-            language it would naturally use the requested target word. Do NOT output the \
-            card-language version. Do NOT include the target word itself in any language. No \
-            labels, no quotes, no parentheses, no notes, no explanations — just the single \
-            foreign-language sentence."
-        }
-        (PracticeMode::Translate, None) => {
-            "You are a language tutor. Translate mode requires a direction; behave as if 'from' \
-            was selected and produce a single short sentence in the card's language using the \
-            requested target word."
+            "ROLE: language tutor producing reverse-translation drills.\n\
+            OUTPUT (every turn): exactly ONE short sentence written ENTIRELY in a language \
+            OTHER than the card's language (default English; if the card is English, use \
+            Spanish), chosen so its natural translation into the card's language uses the \
+            target word.\n\
+            FORMAT: just the sentence — no labels, quotes, parentheses, notes, or \
+            explanations. Do NOT output the card-language version. Do NOT include the target \
+            word in any language."
         }
     };
 
     format!(
-        "You are tutoring a learner at CEFR proficiency level {level}. Match your output to \
-        that level (vocabulary, grammar, sentence length).\n\n{mode_block}\n\nEvery learner \
-        message will end with a block delimited by [TUTOR INSTRUCTION] / [/TUTOR INSTRUCTION]. \
-        That block tells you which target word your VERY NEXT reply must use. Always obey the \
-        most recent block exactly. The target word changes EVERY turn — never reuse the target \
-        from a previous turn. Never echo, mention, quote, or paraphrase the instruction block \
-        itself; just produce the reply it asks for.",
+        "{role_block}\n\n\
+        LEARNER LEVEL: CEFR {level}. The level constraints below are absolute, even when the \
+        target word itself sits above the level — keep every other word inside the allowed \
+        range.\n\n\
+        {level_block}",
         level = level.label(),
+        level_block = level_guidance(level),
     )
 }
 
-fn turn_instruction(
+fn level_guidance(level: ProficiencyLevel) -> &'static str {
+    match level {
+        ProficiencyLevel::A1 => {
+            "LEVEL RULES (A1 — absolute beginner). Hard limits, no exceptions:\n\
+            - Vocabulary: only the ~500 most common everyday words (family, food, numbers, \
+              colors, days, weather, basic feelings, common objects, basic actions).\n\
+            - Grammar: present simple only. No past, no future, no perfect tenses, no \
+              conditionals, no passive, no subjunctive, no modal nuance beyond \"can\".\n\
+            - Sentence length: 3 to 7 words. No subordinate clauses. No more than one clause \
+              per sentence.\n\
+            - Forbidden: idioms, phrasal verbs, slang, abstract nouns, figurative language, \
+              cultural references, technical or academic vocabulary."
+        }
+        ProficiencyLevel::A2 => {
+            "LEVEL RULES (A2 — elementary). Hard limits:\n\
+            - Vocabulary: high-frequency everyday words (~1000–1500). Topics like routine, \
+              shopping, work, hobbies, travel basics, simple feelings.\n\
+            - Grammar: present simple, present continuous, past simple, \"going to\" future, \
+              basic modals (can, must, should). No present perfect continuous, no third \
+              conditional, no passive, no subjunctive.\n\
+            - Sentence length: 5 to 10 words. At most one simple subordinate clause joined by \
+              \"and\", \"but\", \"because\", \"so\".\n\
+            - Forbidden: idioms, phrasal verbs beyond the most common (\"get up\", \"go out\"), \
+              slang, abstract or academic vocabulary, figurative language."
+        }
+        ProficiencyLevel::B1 => {
+            "LEVEL RULES (B1 — intermediate). Limits:\n\
+            - Vocabulary: common everyday and work/study words; you may use a few less frequent \
+              words if context makes them clear. Avoid rare, literary, or technical terms.\n\
+            - Grammar: all basic tenses including present perfect, past continuous, first and \
+              second conditional, common modals, simple passive. Avoid heavy use of subjunctive \
+              or third conditional.\n\
+            - Sentence length: 7 to 15 words. One subordinate clause is fine; avoid stacking \
+              multiple clauses.\n\
+            - Allowed sparingly: very common idioms and phrasal verbs (\"give up\", \"look \
+              forward to\"). Still avoid slang, dense figurative language, and abstract \
+              academic register."
+        }
+        ProficiencyLevel::B2 => {
+            "LEVEL RULES (B2 — upper intermediate). Limits:\n\
+            - Vocabulary: broad everyday plus some abstract and topical vocabulary. You may \
+              use precise synonyms and some less frequent words when they fit naturally.\n\
+            - Grammar: full range of tenses, all conditionals, passive voice, reported \
+              speech, modal nuance, relative clauses. Subjunctive is okay where natural.\n\
+            - Sentence length: 10 to 20 words. Multiple clauses allowed but keep structure \
+              clear.\n\
+            - Allowed: common idioms, phrasal verbs, and figurative expressions. Avoid \
+              archaic, highly literary, or jargon-heavy vocabulary."
+        }
+        ProficiencyLevel::C1 => {
+            "LEVEL RULES (C1 — advanced). Limits:\n\
+            - Vocabulary: rich and precise, including abstract, topical, and lightly \
+              specialised terms. Use nuanced synonyms and collocations.\n\
+            - Grammar: full grammatical range including inversion, cleft sentences, complex \
+              conditionals, subjunctive, nuanced modals.\n\
+            - Sentence length: up to ~25 words; complex multi-clause sentences are welcome \
+              when they read naturally.\n\
+            - Allowed: idioms, fixed expressions, register shifts, mild figurative language, \
+              cultural allusions. Avoid deliberately obscure or archaic vocabulary."
+        }
+        ProficiencyLevel::C2 => {
+            "LEVEL RULES (C2 — mastery / near-native). Guidelines:\n\
+            - Vocabulary: full native-like range, including rare, literary, idiomatic, and \
+              specialised terms when they fit the topic.\n\
+            - Grammar: full sophisticated range with stylistic flexibility.\n\
+            - Sentence length: whatever a skilled native writer would naturally use; complex \
+              and layered sentences are fine.\n\
+            - Allowed: idioms, wordplay, irony, cultural references, register shifts, \
+              figurative and literary language."
+        }
+    }
+}
+
+fn build_user_message(
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
     card: &PracticeCard,
+    user_reply: Option<&str>,
 ) -> String {
-    let blob = card.fields_blob();
-    let target_label = if card.target.is_empty() {
-        "(empty card — pick any word from the fields below)".to_owned()
+    let target_line = if card.target.is_empty() {
+        "Target word: (empty card — pick any salient word from the card fields)".to_owned()
+    } else if matches!(
+        (mode, direction),
+        (PracticeMode::Translate, Some(TranslateDirection::To))
+    ) {
+        format!("Target word (in the card's language): {}", card.target)
     } else {
-        format!("\"{}\"", card.target)
+        format!("Target word: {}", card.target)
     };
 
-    let body = match (mode, direction) {
-        (PracticeMode::Chat, _) => format!(
-            "NEW target word for your next reply ONLY: {target_label}. Ignore every previous \
-            target word. If the card looks like a full sentence, identify the actual focus \
-            word inside it and use that single word. Continue the conversation in the card's \
-            language with one short reply (1-2 sentences) that naturally uses the new target \
-            word."
-        ),
-        (PracticeMode::Translate, Some(TranslateDirection::From)) => format!(
-            "NEW target word for your next reply ONLY: {target_label}. Ignore every previous \
-            target word. If the card is a full sentence, identify the actual focus word and \
-            use that. Output exactly ONE short sentence in the card's language that uses the \
-            new target word."
-        ),
-        (PracticeMode::Translate, Some(TranslateDirection::To)) => format!(
-            "Reverse-translation drill. NEW target word (in the card's language) for your \
-            next reply ONLY: {target_label}. Ignore every previous target word. If the card \
-            is a full sentence, identify the actual focus word and use that. Output exactly \
-            ONE short sentence written ENTIRELY in a language OTHER than the card's language \
-            (use English by default; if the card is in English, use Spanish), chosen so that \
-            translating it back to the card's language would naturally use the new target \
-            word. Do NOT output the card-language sentence. Do NOT include the target word in \
-            any language."
-        ),
-        (PracticeMode::Translate, None) => format!(
-            "NEW target word for your next reply ONLY: {target_label}. Output exactly ONE \
-            short sentence in the card's language that uses the new target word."
-        ),
+    let card_block = {
+        let blob = card.fields_blob();
+        if blob.is_empty() {
+            String::new()
+        } else {
+            format!("\n\nCard:\n{blob}")
+        }
     };
 
-    format!(
-        "[TUTOR INSTRUCTION]\n{body}\n\nCurrent flashcard (context only — do not list back):\n\
-        {blob}\n[/TUTOR INSTRUCTION]"
-    )
+    let mut card_section = format!("{target_line}{card_block}");
+
+    if card.target.contains(char::is_whitespace) {
+        card_section.push_str(
+            "\n\n(The target above looks like a phrase — pick the single focus word from the \
+            card fields and use that.)",
+        );
+    }
+
+    match (mode, user_reply) {
+        (PracticeMode::Chat, Some(reply)) => format!("{reply}\n\n---\n{card_section}"),
+        _ => card_section,
+    }
 }

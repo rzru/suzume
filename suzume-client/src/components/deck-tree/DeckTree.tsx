@@ -7,9 +7,10 @@ import styles from "./DeckTree.module.css";
 
 type DeckTreeProps = {
   nodes: DeckNode[];
+  onNavigate?: () => void;
 };
 
-export function DeckTree({ nodes }: DeckTreeProps) {
+export function DeckTree({ nodes, onNavigate }: DeckTreeProps) {
   return (
     <Flex direction="column" gap="1">
       {nodes.map((node) => {
@@ -26,6 +27,7 @@ export function DeckTree({ nodes }: DeckTreeProps) {
               <NavLink
                 to={deckHref(node.id)}
                 end
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   `${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`
                 }
@@ -45,7 +47,7 @@ export function DeckTree({ nodes }: DeckTreeProps) {
             )}
             {hasChildren && (
               <Box className={styles.children} mt="1">
-                <DeckTree nodes={node.children} />
+                <DeckTree nodes={node.children} onNavigate={onNavigate} />
               </Box>
             )}
           </Box>
