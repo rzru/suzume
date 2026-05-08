@@ -1,7 +1,6 @@
 use anki_bridge::prelude::*;
 use rand::seq::IteratorRandom;
 use reqwest::Client;
-use whatlang::{Script, detect};
 
 use super::CardScope;
 
@@ -10,7 +9,6 @@ pub struct PracticeCard {
     pub id: i64,
     pub fields: Vec<(String, String)>,
     pub target: String,
-    pub language: Option<&'static str>,
 }
 
 impl PracticeCard {
@@ -101,47 +99,6 @@ fn strip_img_tags(value: &str) -> String {
     }
 
     out
-}
-
-fn detect_card_language(target: &str, fields: &[(String, String)]) -> Option<&'static str> {
-    let target_clean = strip_media(target);
-    if let Some(lang) = analyse(&target_clean) {
-        return Some(lang);
-    }
-
-    let mut reliable: Vec<(usize, &'static str)> = Vec::new();
-    for (_, value) in fields {
-        let cleaned = strip_media(value);
-        let trimmed = cleaned.trim();
-        if trimmed.chars().count() < 8 {
-            continue;
-        }
-        if let Some(info) = detect(trimmed) {
-            if info.is_reliable() {
-                reliable.push((trimmed.len(), info.lang().eng_name()));
-            }
-        }
-    }
-
-    if let Some((_, lang)) = reliable.iter().find(|(_, l)| *l != "English") {
-        return Some(*lang);
-    }
-
-    reliable.into_iter().max_by_key(|(len, _)| *len).map(|(_, l)| l)
-}
-
-fn analyse(text: &str) -> Option<&'static str> {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    let info = detect(trimmed)?;
-    let script_decisive = !matches!(info.script(), Script::Latin);
-    if script_decisive || info.is_reliable() {
-        Some(info.lang().eng_name())
-    } else {
-        None
-    }
 }
 
 fn collapse_whitespace(value: &str) -> String {
@@ -247,13 +204,10 @@ impl CardSampler {
             .map(|(_, name, value)| (name, value))
             .collect();
 
-        let language = detect_card_language(&target, &fields);
-
         Ok(Some(PracticeCard {
             id: card.card_id,
             fields,
             target,
-            language,
         }))
     }
 }

@@ -39,7 +39,6 @@ pub struct PracticeSession {
     history: Vec<ChatMessage>,
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
-    card_language: Option<&'static str>,
     last_assistant: Option<String>,
     last_target: Option<String>,
 }
@@ -58,7 +57,6 @@ impl PracticeSession {
             history: Vec::new(),
             mode: params.mode,
             direction: params.direction,
-            card_language: None,
             last_assistant: None,
             last_target: None,
         })
@@ -106,7 +104,6 @@ impl PracticeSession {
             self.trim_history();
         }
 
-        self.card_language = card.language;
         self.last_assistant = Some(stored.content.clone());
         self.last_target = Some(card.target.clone());
 
@@ -126,7 +123,6 @@ impl PracticeSession {
         let prompt = build_correction_prompt(
             self.mode,
             self.direction,
-            self.card_language,
             self.last_target.as_deref(),
             last_assistant,
             trimmed,
@@ -217,29 +213,28 @@ fn correction_system_prompt() -> &'static str {
 fn build_correction_prompt(
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
-    card_language: Option<&'static str>,
     target: Option<&str>,
     last_assistant: &str,
     learner_reply: &str,
 ) -> String {
-    let card_lang = card_language.unwrap_or("the card language");
-
     match mode {
         PracticeMode::Chat => format!(
-            "Card language: {card_lang}. Rewrite the LEARNER message naturally in {card_lang}, \
+            "TUTOR (previous reply, in the card's language): {last_assistant}\n\
+            LEARNER: {learner_reply}\n\n\
+            Rewrite the LEARNER message naturally in the SAME language as TUTOR's reply, \
             fixing grammar, spelling, and word choice. If already correct, return it exactly \
-            as given.\n\n\
-            LEARNER: {learner_reply}"
+            as given."
         ),
         PracticeMode::Translate => match direction {
             Some(TranslateDirection::To) => format!(
                 "SOURCE: {last_assistant}\n\
-                LEARNER TRANSLATION ({card_lang}): {learner_reply}\n\n\
-                Rewrite the learner's translation as a natural and accurate {card_lang} \
-                translation of SOURCE. If already correct, return it exactly as given."
+                LEARNER TRANSLATION (in the card's language): {learner_reply}\n\n\
+                Rewrite the learner's translation as a natural and accurate translation of \
+                SOURCE in the card's language (the same language the learner used). If \
+                already correct, return it exactly as given."
             ),
             Some(TranslateDirection::From) | None => format!(
-                "SOURCE ({card_lang}): {last_assistant}\n\
+                "SOURCE: {last_assistant}\n\
                 LEARNER TRANSLATION: {learner_reply}\n\n\
                 Rewrite the learner's translation as a natural and accurate translation of \
                 SOURCE, in the SAME language the learner wrote in (auto-detect). If already \
@@ -249,15 +244,15 @@ fn build_correction_prompt(
         PracticeMode::Construct => {
             let target_clause = match target {
                 Some(word) if !word.trim().is_empty() => format!(
-                    " Keep the target word \"{word}\" in the rewrite (any inflected form is \
-                    fine)."
+                    " Keep the target word \"{word}\" (or any natural inflected form of it) \
+                    in the rewrite — that target word's language IS the card's language."
                 ),
                 _ => String::new(),
             };
             format!(
-                "Card language: {card_lang}. Rewrite the LEARNER sentence naturally in \
-                {card_lang}, fixing grammar, spelling, and word choice.{target_clause} If \
-                already correct, return it exactly as given.\n\n\
+                "Rewrite the LEARNER sentence naturally in the card's language, fixing \
+                grammar, spelling, and word choice.{target_clause} If already correct, \
+                return it exactly as given.\n\n\
                 LEARNER: {learner_reply}"
             )
         }
@@ -273,12 +268,14 @@ fn system_prompt(
         (PracticeMode::Chat, _) => {
             "ROLE: friendly language tutor having an ongoing casual conversation with the \
             learner.\n\
-            BEHAVIOUR: every turn you will be given the card language explicitly — always \
-            reply ENTIRELY in that language, even if the learner writes to you in English or \
-            in another language. One short message per reply (1-2 sentences). Refer to the \
-            learner's last message when it makes sense, ask a follow-up question, or build \
-            on the topic so the conversation keeps going. Each turn you will also be given a \
-            NEW target word to weave in naturally — never reuse a previous turn's target.\n\
+            BEHAVIOUR: each turn you will be given a target word and the source flashcard. \
+            INFER the card's language from the target word together with the card fields \
+            (script, readings, example sentence, definitions, etc.) and always reply \
+            ENTIRELY in that language, even if the learner writes in English or another \
+            language. One short message per reply (1-2 sentences). Refer to the learner's \
+            last message when it makes sense, ask a follow-up question, or build on the \
+            topic so the conversation keeps going. Each turn you will be given a NEW target \
+            word to weave in naturally — never reuse a previous turn's target.\n\
             FORMAT: wrap the form of the target word you actually use in **double asterisks** \
             (e.g. **example**). No other formatting, no quotes, no meta commentary."
         }
@@ -286,8 +283,10 @@ fn system_prompt(
         | (PracticeMode::Translate, None) => {
             "ROLE: language tutor producing example sentences.\n\
             OUTPUT (every turn): exactly ONE short, natural sentence written ENTIRELY in the \
-            card language stated for that turn (do NOT switch to English or any other \
-            language) that uses the target word given that turn.\n\
+            card's language — INFER that language from the target word and the card fields \
+            (script, readings, definitions, example sentence) shown each turn; do NOT switch \
+            to English or any other language. The sentence MUST use the target word given \
+            that turn.\n\
             FORMAT — MANDATORY, never skip even when reasoning about style: in your final \
             answer the form of the target word you actually use MUST be wrapped in **double \
             asterisks** so the UI can highlight it. Always include the asterisks. Example — \
@@ -298,10 +297,12 @@ fn system_prompt(
         }
         (PracticeMode::Translate, Some(TranslateDirection::To)) => {
             "ROLE: language tutor producing reverse-translation drills.\n\
-            OUTPUT (every turn): exactly ONE short sentence written ENTIRELY in a language \
-            OTHER than the card language stated for that turn (default English; if the card \
-            is English, use Spanish), chosen so its natural translation into the card \
-            language uses the target word.\n\
+            OUTPUT (every turn): first INFER the card's language from the target word and \
+            the card fields (script, readings, definitions, example sentence) shown each \
+            turn. Then produce exactly ONE short sentence written ENTIRELY in a language \
+            OTHER than the card's language (default English; if the card is in English, use \
+            Spanish), chosen so its natural translation into the card's language uses the \
+            target word.\n\
             FORMAT: just the sentence — no labels, quotes, parentheses, notes, or \
             explanations. Do NOT output the card-language version. Do NOT include the target \
             word in any language."
@@ -310,9 +311,11 @@ fn system_prompt(
             "ROLE: language tutor handing the learner a single target word to build a \
             sentence with.\n\
             OUTPUT (every turn): exactly the target word given for that turn, written in the \
-            card language, with no sentence, no example, no translation, no commentary, no \
-            quotes, and no punctuation around it. Use the most natural citation form (lemma) \
-            of the word for that language unless the card itself implies a specific form.\n\
+            card's language (INFER that language from the target word and the card fields \
+            shown each turn), with no sentence, no example, no translation, no commentary, \
+            no quotes, and no punctuation around it. Use the most natural citation form \
+            (lemma) of the word for that language unless the card itself implies a specific \
+            form.\n\
             FORMAT — MANDATORY: wrap the target word in **double asterisks** so the UI can \
             highlight it (e.g. **example**, **бежать**, **食べる**). Output ONLY that token \
             and nothing else."
@@ -437,13 +440,9 @@ fn build_construct_user_message(card: &PracticeCard) -> String {
         format!("\"{}\"", card.target)
     };
 
-    let language_line = match card.language {
-        Some(lang) => format!(
-            "Card language: {lang}. Output the target word in {lang}; do not switch to \
-            English or any other language.\n"
-        ),
-        None => String::new(),
-    };
+    let language_line = "Card language: INFER it from the target word and the card fields \
+        below (script, readings, definitions). Output the target word in that language; do \
+        not switch to English or any other language.\n";
 
     let blob = card.fields_blob();
     let card_block = if blob.is_empty() {
@@ -494,15 +493,10 @@ fn build_chat_user_message(card: &PracticeCard, user_reply: Option<&str>) -> Str
         format!("\n\nCurrent flashcard (context only — do not list back):\n{blob}")
     };
 
-    let language_clause = match card.language {
-        Some(lang) => format!(
-            "Card language: {lang}. Reply ENTIRELY in {lang}; do not switch to English or \
-            any other language even if the learner writes in another language."
-        ),
-        None => "Reply in the card's language (infer it from the target word and the card \
-            fields below)."
-            .to_owned(),
-    };
+    let language_clause = "Card language: INFER it from the target word and the card \
+        fields below (script, readings, definitions, example sentence). Reply ENTIRELY in \
+        that language; do not switch to English or any other language even if the learner \
+        writes in another language.";
 
     let instruction = format!(
         "[TUTOR INSTRUCTION]\n\
@@ -527,25 +521,22 @@ fn build_translate_user_message(
 ) -> String {
     let is_reverse = matches!(direction, Some(TranslateDirection::To));
 
-    let language_label = card.language.unwrap_or("the card's language");
-
-    let language_line = match (is_reverse, card.language) {
-        (false, Some(lang)) => format!(
-            "Card language: {lang}. Write the sentence ENTIRELY in {lang}; do not mix in \
-            English or any other language.\n"
-        ),
-        (true, Some(lang)) => format!(
-            "Card language: {lang}. The sentence you produce MUST be in a language other \
-            than {lang} (use English; if the card is English, use Spanish), but its natural \
-            translation back into {lang} should use the target word.\n"
-        ),
-        (_, None) => String::new(),
+    let language_line = if is_reverse {
+        "Card language: INFER it from the target word and the card fields below (script, \
+        readings, definitions, example sentence). The sentence you produce MUST be in a \
+        language OTHER than the card's language (default English; if the card is in \
+        English, use Spanish), but its natural translation back into the card's language \
+        should use the target word.\n"
+    } else {
+        "Card language: INFER it from the target word and the card fields below (script, \
+        readings, definitions, example sentence). Write the sentence ENTIRELY in that \
+        language; do not mix in English or any other language.\n"
     };
 
     let target_line = if card.target.is_empty() {
         "Target word: (empty card — pick any salient word from the card fields)".to_owned()
     } else if is_reverse {
-        format!("Target word (in {language_label}): {}", card.target)
+        format!("Target word (in the card's language): {}", card.target)
     } else {
         format!("Target word: {}", card.target)
     };
