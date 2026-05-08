@@ -26,7 +26,6 @@ export function DeckTree({ nodes, onNavigate }: DeckTreeProps) {
             {node.id !== undefined ? (
               <NavLink
                 to={deckHref(node.id)}
-                end
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   `${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`

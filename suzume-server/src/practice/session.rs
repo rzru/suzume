@@ -41,6 +41,7 @@ pub struct PracticeSession {
     direction: Option<TranslateDirection>,
     card_language: Option<&'static str>,
     last_assistant: Option<String>,
+    last_target: Option<String>,
 }
 
 impl PracticeSession {
@@ -59,7 +60,16 @@ impl PracticeSession {
             direction: params.direction,
             card_language: None,
             last_assistant: None,
+            last_target: None,
         })
+    }
+
+    pub fn skip_current(&mut self) {
+        if matches!(self.mode, PracticeMode::Chat) {
+            self.history.pop();
+        }
+        self.last_assistant = None;
+        self.last_target = None;
     }
 
     pub async fn next_turn(
@@ -98,6 +108,7 @@ impl PracticeSession {
 
         self.card_language = card.language;
         self.last_assistant = Some(stored.content.clone());
+        self.last_target = Some(card.target.clone());
 
         Ok(stored.content)
     }
@@ -116,6 +127,7 @@ impl PracticeSession {
             self.mode,
             self.direction,
             self.card_language,
+            self.last_target.as_deref(),
             last_assistant,
             trimmed,
         );
@@ -206,6 +218,7 @@ fn build_correction_prompt(
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
     card_language: Option<&'static str>,
+    target: Option<&str>,
     last_assistant: &str,
     learner_reply: &str,
 ) -> String {
@@ -233,6 +246,21 @@ fn build_correction_prompt(
                 correct, return it exactly as given."
             ),
         },
+        PracticeMode::Construct => {
+            let target_clause = match target {
+                Some(word) if !word.trim().is_empty() => format!(
+                    " Keep the target word \"{word}\" in the rewrite (any inflected form is \
+                    fine)."
+                ),
+                _ => String::new(),
+            };
+            format!(
+                "Card language: {card_lang}. Rewrite the LEARNER sentence naturally in \
+                {card_lang}, fixing grammar, spelling, and word choice.{target_clause} If \
+                already correct, return it exactly as given.\n\n\
+                LEARNER: {learner_reply}"
+            )
+        }
     }
 }
 
@@ -278,6 +306,17 @@ fn system_prompt(
             explanations. Do NOT output the card-language version. Do NOT include the target \
             word in any language."
         }
+        (PracticeMode::Construct, _) => {
+            "ROLE: language tutor handing the learner a single target word to build a \
+            sentence with.\n\
+            OUTPUT (every turn): exactly the target word given for that turn, written in the \
+            card language, with no sentence, no example, no translation, no commentary, no \
+            quotes, and no punctuation around it. Use the most natural citation form (lemma) \
+            of the word for that language unless the card itself implies a specific form.\n\
+            FORMAT — MANDATORY: wrap the target word in **double asterisks** so the UI can \
+            highlight it (e.g. **example**, **бежать**, **食べる**). Output ONLY that token \
+            and nothing else."
+        }
     };
 
     let level_block = match mode {
@@ -294,6 +333,11 @@ fn system_prompt(
             {guidance}",
             level = level.label(),
             guidance = level_guidance(level),
+        ),
+        PracticeMode::Construct => format!(
+            "LEARNER LEVEL: CEFR {level}. The learner will build their own sentence — your \
+            job is just to deliver the target word cleanly.",
+            level = level.label(),
         ),
     };
 
@@ -382,7 +426,51 @@ fn build_user_message(
     match mode {
         PracticeMode::Chat => build_chat_user_message(card, user_reply),
         PracticeMode::Translate => build_translate_user_message(direction, card),
+        PracticeMode::Construct => build_construct_user_message(card),
     }
+}
+
+fn build_construct_user_message(card: &PracticeCard) -> String {
+    let target_label = if card.target.is_empty() {
+        "(empty card — pick any salient word from the card fields below)".to_owned()
+    } else {
+        format!("\"{}\"", card.target)
+    };
+
+    let language_line = match card.language {
+        Some(lang) => format!(
+            "Card language: {lang}. Output the target word in {lang}; do not switch to \
+            English or any other language.\n"
+        ),
+        None => String::new(),
+    };
+
+    let blob = card.fields_blob();
+    let card_block = if blob.is_empty() {
+        String::new()
+    } else {
+        format!("\n\nCard:\n{blob}")
+    };
+
+    let phrase_hint = if card.target.contains(char::is_whitespace) {
+        "\n\n(The target above looks like a phrase — pick the single focus word from the \
+        card fields and use that single word.)"
+    } else {
+        ""
+    };
+
+    let example = if card.target.is_empty() {
+        "**word**".to_owned()
+    } else {
+        format!("**{}**", card.target)
+    };
+
+    format!(
+        "{language_line}New target word for this turn: {target_label}.{card_block}{phrase_hint}\n\n\
+        FORMAT REMINDER (MANDATORY): output ONLY the target word wrapped in double asterisks \
+        ({example} or its natural citation form). No sentence, no translation, no \
+        explanation, no quotes, no extra characters."
+    )
 }
 
 fn build_chat_user_message(card: &PracticeCard, user_reply: Option<&str>) -> String {

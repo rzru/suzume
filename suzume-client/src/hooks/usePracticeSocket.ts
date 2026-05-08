@@ -27,6 +27,7 @@ export type PracticeMessage =
       content: string;
       card: AssistantCard;
       feedback: PracticeFeedback | null;
+      skipped?: boolean;
     }
   | { id: string; role: "user"; content: string };
 
@@ -162,5 +163,28 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
     setError(null);
   }, []);
 
-  return { messages, status, error, send, isAwaitingReply };
+  const skip = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+    socket.send(JSON.stringify({ type: "skip" }));
+    setMessages((prev) => {
+      let marked = false;
+      const next: PracticeMessage[] = [];
+      for (let i = prev.length - 1; i >= 0; i--) {
+        const message = prev[i];
+        if (!marked && message.role === "assistant") {
+          next.unshift({ ...message, skipped: true });
+          marked = true;
+        } else {
+          next.unshift(message);
+        }
+      }
+      return next;
+    });
+    setIsAwaitingReply(true);
+    setError(null);
+  }, []);
+
+  return { messages, status, error, send, skip, isAwaitingReply };
 }

@@ -1,4 +1,4 @@
-export const PRACTICE_MODES = ["chat", "translate"] as const;
+export const PRACTICE_MODES = ["chat", "translate", "construct"] as const;
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
 export const PROFICIENCY_LEVELS = ["a1", "a2", "b1", "b2", "c1", "c2"] as const;

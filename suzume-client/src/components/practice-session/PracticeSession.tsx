@@ -59,7 +59,7 @@ export function PracticeSession({
   scope,
   direction,
 }: PracticeSessionProps) {
-  const { messages, status, error, send, isAwaitingReply } = usePracticeSocket({
+  const { messages, status, error, send, skip, isAwaitingReply } = usePracticeSocket({
     deckName,
     mode,
     level,
@@ -112,6 +112,21 @@ export function PracticeSession({
 
   const composerDisabled = status !== "open" || isAwaitingReply;
 
+  let lastAssistantIndex = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant") {
+      lastAssistantIndex = i;
+      break;
+    }
+  }
+  const canSkip = !composerDisabled && lastAssistantIndex !== -1;
+
+  const handleSkip = () => {
+    if (!canSkip) return;
+    setDraft("");
+    skip();
+  };
+
   return (
     <Flex justify="center" align={{ initial: "stretch", md: "center" }} height="100%">
       <Card size="3" className={styles.session}>
@@ -161,8 +176,12 @@ export function PracticeSession({
                   <Text color="gray">Connecting to practice session...</Text>
                 </Flex>
               )}
-              {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+              {messages.map((message, index) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  onSkip={index === lastAssistantIndex && canSkip ? handleSkip : undefined}
+                />
               ))}
               {isAwaitingReply && status === "open" && (
                 <Flex align="center" gap="2">
@@ -179,11 +198,7 @@ export function PracticeSession({
             <TextArea
               ref={inputRef}
               size="3"
-              placeholder={
-                mode === "translate" && direction === "to"
-                  ? "Translate the sentence back..."
-                  : "Type your reply..."
-              }
+              placeholder={composerPlaceholder(mode, direction)}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleKeyDown}
@@ -201,6 +216,16 @@ export function PracticeSession({
       </Card>
     </Flex>
   );
+}
+
+function composerPlaceholder(mode: PracticeMode, direction: TranslateDirection | null): string {
+  if (mode === "construct") {
+    return "Write a sentence using the target word...";
+  }
+  if (mode === "translate" && direction === "to") {
+    return "Translate the sentence back...";
+  }
+  return "Type your reply...";
 }
 
 function SocketStatusBadge({ status }: { status: ReturnType<typeof usePracticeSocket>["status"] }) {

@@ -1,5 +1,5 @@
-import { Box, Button, Card, Dialog, Flex, IconButton, Text } from "@radix-ui/themes";
-import { InfoCircledIcon } from "@radix-ui/react-icons";
+import { Badge, Box, Button, Card, Dialog, Flex, IconButton, Text } from "@radix-ui/themes";
+import { InfoCircledIcon, TrackNextIcon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
 import type { AssistantCard, PracticeMessage } from "../../hooks/usePracticeSocket";
 import { rewriteAnkiMedia } from "../../utils/ankiMedia";
@@ -8,20 +8,27 @@ import styles from "./PracticeSession.module.css";
 
 type MessageBubbleProps = {
   message: PracticeMessage;
+  onSkip?: () => void;
 };
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, onSkip }: MessageBubbleProps) {
   const isAssistant = message.role === "assistant";
+  const isSkipped = isAssistant && message.skipped === true;
   const rowClass = `${styles.bubbleRow} ${
     isAssistant ? styles.bubbleRowAssistant : styles.bubbleRowUser
   }`;
-  const bubbleClass = `${styles.bubble} ${
-    isAssistant ? styles.bubbleAssistant : styles.bubbleUser
-  }`;
+  const bubbleClass = [
+    styles.bubble,
+    isAssistant ? styles.bubbleAssistant : styles.bubbleUser,
+    isSkipped ? styles.bubbleSkipped : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const target = message.role === "assistant" ? message.card.target : "";
   const rendered = isAssistant ? renderWithHighlight(message.content, target) : message.content;
   const feedback = message.role === "assistant" ? message.feedback : null;
+  const showSkipButton = isAssistant && !isSkipped && typeof onSkip === "function";
 
   return (
     <Box className={rowClass}>
@@ -31,8 +38,29 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <Card size="2" className={bubbleClass}>
             <Text size="2">{rendered}</Text>
           </Card>
-          {message.role === "assistant" && <CardInfoDialog card={message.card} />}
+          {isAssistant && (
+            <Flex direction="row" align="center" gap="2" className={styles.bubbleActions}>
+              <CardInfoDialog card={message.card} />
+              {showSkipButton && (
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  size="1"
+                  aria-label="Skip this card"
+                  className={styles.skipButton}
+                  onClick={onSkip}
+                >
+                  <TrackNextIcon />
+                </IconButton>
+              )}
+            </Flex>
+          )}
         </Flex>
+        {isSkipped && (
+          <Badge color="gray" variant="soft" size="1" className={styles.skippedBadge}>
+            Skipped
+          </Badge>
+        )}
       </Flex>
     </Box>
   );
@@ -56,7 +84,16 @@ function CardInfoDialog({ card }: { card: AssistantCard }) {
       </Dialog.Trigger>
       <Dialog.Content className={styles.drawerContent}>
         <Box className={styles.drawerHeader}>
-          <Dialog.Title mb="1">{card.target || `Card #${card.id}`}</Dialog.Title>
+          <Dialog.Title mb="1">
+            {card.target ? (
+              <span
+                className={styles.drawerTitleHtml}
+                dangerouslySetInnerHTML={{ __html: rewriteAnkiMedia(card.target) }}
+              />
+            ) : (
+              `Card #${card.id}`
+            )}
+          </Dialog.Title>
           <Dialog.Description size="2" color="gray">
             Card #{card.id}
           </Dialog.Description>

@@ -29,6 +29,7 @@ pub fn router() -> Router<AppState> {
 pub enum PracticeMode {
     Chat,
     Translate,
+    Construct,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -82,6 +83,7 @@ pub struct PracticeParams {
 #[serde(tag = "type", rename_all = "lowercase")]
 enum ClientMessage {
     User { content: String },
+    Skip,
 }
 
 #[derive(Debug, Serialize)]
@@ -174,13 +176,20 @@ async fn run_session(mut socket: WebSocket, state: AppState, params: PracticePar
             }
         };
 
-        let ClientMessage::User { content } = parsed;
-
-        let feedback = match session.correct(&content).await {
-            Ok(feedback) => feedback,
-            Err(err) => {
-                warn!(?err, "correction call failed; continuing without feedback");
-                None
+        let (user_reply, feedback) = match parsed {
+            ClientMessage::User { content } => {
+                let feedback = match session.correct(&content).await {
+                    Ok(feedback) => feedback,
+                    Err(err) => {
+                        warn!(?err, "correction call failed; continuing without feedback");
+                        None
+                    }
+                };
+                (Some(content), feedback)
+            }
+            ClientMessage::Skip => {
+                session.skip_current();
+                (None, None)
             }
         };
 
@@ -189,7 +198,7 @@ async fn run_session(mut socket: WebSocket, state: AppState, params: PracticePar
             &sampler,
             &mut session,
             &params,
-            Some(&content),
+            user_reply.as_deref(),
             feedback,
         )
         .await
