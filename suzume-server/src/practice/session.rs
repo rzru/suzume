@@ -39,6 +39,7 @@ pub struct PracticeSession {
     history: Vec<ChatMessage>,
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
+    target_language: Option<String>,
     last_assistant: Option<String>,
     last_target: Option<String>,
 }
@@ -47,16 +48,26 @@ impl PracticeSession {
     pub fn new(state: &AppState, params: &PracticeParams) -> Result<Self, SessionError> {
         let ollama = Ollama::try_new(state.ollama_base_url.as_str())
             .map_err(|err| SessionError::OllamaInit(err.to_string()))?;
-        let system =
-            ChatMessage::system(system_prompt(params.mode, params.level, params.direction));
+        let system = ChatMessage::system(system_prompt(
+            params.mode,
+            params.level,
+            params.direction,
+            params.target_language.as_deref(),
+        ));
+
+        let model = params
+            .model
+            .clone()
+            .unwrap_or_else(|| state.ollama_model.clone());
 
         Ok(Self {
             ollama,
-            model: state.ollama_model.clone(),
+            model,
             system,
             history: Vec::new(),
             mode: params.mode,
             direction: params.direction,
+            target_language: params.target_language.clone(),
             last_assistant: None,
             last_target: None,
         })
@@ -80,8 +91,13 @@ impl PracticeSession {
             .filter(|reply| !reply.is_empty())
             .map(str::to_owned);
 
-        let user_content =
-            build_user_message(self.mode, self.direction, card, cleaned_reply.as_deref());
+        let user_content = build_user_message(
+            self.mode,
+            self.direction,
+            self.target_language.as_deref(),
+            card,
+            cleaned_reply.as_deref(),
+        );
 
         let prompt_messages = self.assemble_prompt(ChatMessage::user(user_content));
 
@@ -263,6 +279,7 @@ fn system_prompt(
     mode: PracticeMode,
     level: ProficiencyLevel,
     direction: Option<TranslateDirection>,
+    target_language: Option<&str>,
 ) -> String {
     let role_block = match (mode, direction) {
         (PracticeMode::Chat, _) => {
@@ -296,16 +313,7 @@ fn system_prompt(
             formatting."
         }
         (PracticeMode::Translate, Some(TranslateDirection::To)) => {
-            "ROLE: language tutor producing reverse-translation drills.\n\
-            OUTPUT (every turn): first INFER the card's language from the target word and \
-            the card fields (script, readings, definitions, example sentence) shown each \
-            turn. Then produce exactly ONE short sentence written ENTIRELY in a language \
-            OTHER than the card's language (default English; if the card is in English, use \
-            Spanish), chosen so its natural translation into the card's language uses the \
-            target word.\n\
-            FORMAT: just the sentence — no labels, quotes, parentheses, notes, or \
-            explanations. Do NOT output the card-language version. Do NOT include the target \
-            word in any language."
+            return translate_to_system_prompt(level, target_language);
         }
         (PracticeMode::Construct, _) => {
             "ROLE: language tutor handing the learner a single target word to build a \
@@ -343,6 +351,48 @@ fn system_prompt(
             level = level.label(),
         ),
     };
+
+    format!("{role_block}\n\n{level_block}")
+}
+
+fn translate_to_system_prompt(
+    level: ProficiencyLevel,
+    target_language: Option<&str>,
+) -> String {
+    let role_block = match target_language {
+        Some(language) => format!(
+            "ROLE: language tutor producing reverse-translation drills.\n\
+            OUTPUT (every turn): first INFER the card's language from the target word and \
+            the card fields (script, readings, definitions, example sentence) shown each \
+            turn. Then produce exactly ONE short sentence written ENTIRELY in {language}, \
+            chosen so its natural translation into the card's language uses the target word. \
+            If the card's language is also {language}, fall back to English (or to Spanish \
+            if the card itself is in English).\n\
+            FORMAT: just the sentence — no labels, quotes, parentheses, notes, or \
+            explanations. Do NOT output the card-language version. Do NOT include the target \
+            word in any language."
+        ),
+        None => "ROLE: language tutor producing reverse-translation drills.\n\
+            OUTPUT (every turn): first INFER the card's language from the target word and \
+            the card fields (script, readings, definitions, example sentence) shown each \
+            turn. Then produce exactly ONE short sentence written ENTIRELY in a language \
+            OTHER than the card's language (default English; if the card is in English, use \
+            Spanish), chosen so its natural translation into the card's language uses the \
+            target word.\n\
+            FORMAT: just the sentence — no labels, quotes, parentheses, notes, or \
+            explanations. Do NOT output the card-language version. Do NOT include the target \
+            word in any language."
+            .to_owned(),
+    };
+
+    let level_block = format!(
+        "LEARNER LEVEL: CEFR {level}. The level constraints below are absolute, even when \
+        the target word itself sits above the level — keep every other word inside the \
+        allowed range.\n\n\
+        {guidance}",
+        level = level.label(),
+        guidance = level_guidance(level),
+    );
 
     format!("{role_block}\n\n{level_block}")
 }
@@ -423,12 +473,15 @@ fn level_guidance(level: ProficiencyLevel) -> &'static str {
 fn build_user_message(
     mode: PracticeMode,
     direction: Option<TranslateDirection>,
+    target_language: Option<&str>,
     card: &PracticeCard,
     user_reply: Option<&str>,
 ) -> String {
     match mode {
         PracticeMode::Chat => build_chat_user_message(card, user_reply),
-        PracticeMode::Translate => build_translate_user_message(direction, card),
+        PracticeMode::Translate => {
+            build_translate_user_message(direction, target_language, card)
+        }
         PracticeMode::Construct => build_construct_user_message(card),
     }
 }
@@ -517,20 +570,32 @@ fn build_chat_user_message(card: &PracticeCard, user_reply: Option<&str>) -> Str
 
 fn build_translate_user_message(
     direction: Option<TranslateDirection>,
+    target_language: Option<&str>,
     card: &PracticeCard,
 ) -> String {
     let is_reverse = matches!(direction, Some(TranslateDirection::To));
 
-    let language_line = if is_reverse {
-        "Card language: INFER it from the target word and the card fields below (script, \
-        readings, definitions, example sentence). The sentence you produce MUST be in a \
-        language OTHER than the card's language (default English; if the card is in \
-        English, use Spanish), but its natural translation back into the card's language \
-        should use the target word.\n"
-    } else {
-        "Card language: INFER it from the target word and the card fields below (script, \
-        readings, definitions, example sentence). Write the sentence ENTIRELY in that \
-        language; do not mix in English or any other language.\n"
+    let reverse_language_line = is_reverse.then(|| match target_language {
+        Some(language) => format!(
+            "Card language: INFER it from the target word and the card fields below (script, \
+            readings, definitions, example sentence). The sentence you produce MUST be in \
+            {language} (if the card itself is in {language}, fall back to English, or to \
+            Spanish if the card is in English), and its natural translation back into the \
+            card's language should use the target word.\n"
+        ),
+        None => "Card language: INFER it from the target word and the card fields below (script, \
+            readings, definitions, example sentence). The sentence you produce MUST be in a \
+            language OTHER than the card's language (default English; if the card is in \
+            English, use Spanish), but its natural translation back into the card's language \
+            should use the target word.\n"
+            .to_owned(),
+    });
+
+    let language_line: &str = match reverse_language_line.as_deref() {
+        Some(line) => line,
+        None => "Card language: INFER it from the target word and the card fields below (script, \
+            readings, definitions, example sentence). Write the sentence ENTIRELY in that \
+            language; do not mix in English or any other language.\n",
     };
 
     let target_line = if card.target.is_empty() {

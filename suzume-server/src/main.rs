@@ -1,5 +1,6 @@
 mod anki;
 mod health;
+mod models;
 mod practice;
 mod state;
 
@@ -86,6 +87,7 @@ async fn main() {
         .merge(health::router())
         .merge(anki::decks::router())
         .merge(anki::media::router())
+        .merge(models::router())
         .merge(practice::router())
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(X_REQUEST_ID))

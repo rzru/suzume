@@ -2,6 +2,7 @@ import { Badge, Flex, Heading, ScrollArea, Separator, Text } from "@radix-ui/the
 import { LayersIcon } from "@radix-ui/react-icons";
 import type { DeckNode } from "../../api/decksTree";
 import { DeckTree } from "../deck-tree";
+import { SettingsDialog } from "../settings-dialog";
 import styles from "./DecksSidebar.module.css";
 
 type DecksSidebarProps = {
@@ -27,9 +28,12 @@ export function DecksSidebar({ decks, onNavigate }: DecksSidebarProps) {
           <LayersIcon />
           <Heading size="3">Decks</Heading>
         </Flex>
-        <Badge color="gray" variant="soft">
-          {totalDecks}
-        </Badge>
+        <Flex align="center" gap="2">
+          <SettingsDialog />
+          <Badge color="gray" variant="soft">
+            {totalDecks}
+          </Badge>
+        </Flex>
       </Flex>
       <Separator size="4" />
       <ScrollArea type="auto" scrollbars="vertical" className={styles.scrollArea}>

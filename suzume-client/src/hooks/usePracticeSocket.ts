@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildWsUrl } from "../api/url";
+import { useAppSettings } from "./useAppSettings";
 import type {
   CardScope,
   PracticeMode,
@@ -56,7 +57,12 @@ type UsePracticeSocketParams = {
   direction: TranslateDirection | null;
 };
 
-const buildPracticeUrl = (params: UsePracticeSocketParams): string => {
+type BuildPracticeUrlParams = UsePracticeSocketParams & {
+  model: string | null;
+  targetLanguage: string | null;
+};
+
+const buildPracticeUrl = (params: BuildPracticeUrlParams): string => {
   const search = new URLSearchParams({
     deck: params.deckName,
     mode: params.mode,
@@ -65,6 +71,12 @@ const buildPracticeUrl = (params: UsePracticeSocketParams): string => {
   });
   if (params.direction) {
     search.set("direction", params.direction);
+  }
+  if (params.model) {
+    search.set("model", params.model);
+  }
+  if (params.targetLanguage) {
+    search.set("target_language", params.targetLanguage);
   }
   return buildWsUrl(`/ws/practice?${search.toString()}`);
 };
@@ -76,6 +88,7 @@ const newId = () =>
 
 export function usePracticeSocket(params: UsePracticeSocketParams) {
   const { deckName, mode, level, scope, direction } = params;
+  const { model, targetLanguage } = useAppSettings();
 
   const [messages, setMessages] = useState<PracticeMessage[]>([]);
   const [status, setStatus] = useState<SocketStatus>("connecting");
@@ -85,8 +98,17 @@ export function usePracticeSocket(params: UsePracticeSocketParams) {
   const socketRef = useRef<WebSocket | null>(null);
 
   const url = useMemo(
-    () => buildPracticeUrl({ deckName, mode, level, scope, direction }),
-    [deckName, mode, level, scope, direction],
+    () =>
+      buildPracticeUrl({
+        deckName,
+        mode,
+        level,
+        scope,
+        direction,
+        model,
+        targetLanguage,
+      }),
+    [deckName, mode, level, scope, direction, model, targetLanguage],
   );
 
   useEffect(() => {

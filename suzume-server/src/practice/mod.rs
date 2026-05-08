@@ -70,6 +70,16 @@ pub enum TranslateDirection {
     To,
 }
 
+fn deserialize_optional_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    Ok(value
+        .map(|raw| raw.trim().to_owned())
+        .filter(|trimmed| !trimmed.is_empty()))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PracticeParams {
     pub deck: String,
@@ -77,6 +87,10 @@ pub struct PracticeParams {
     pub level: ProficiencyLevel,
     pub scope: CardScope,
     pub direction: Option<TranslateDirection>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub model: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_string")]
+    pub target_language: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
