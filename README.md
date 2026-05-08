@@ -18,6 +18,12 @@ Everything runs on your own machine or NAS. There are no accounts, no API keys, 
 
 It's designed to be set up once on a home server and opened from any device on your LAN: laptop, tablet, or phone.
 
+## Why is it called Suzume?
+
+*Suzume* (雀) is the Japanese word for sparrow. Researchers studying Japanese great tits (a close relative, *Parus minor*) have shown that these little birds aren't just chirping — they actually use a form of [compositional syntax](https://www.youtube.com/watch?v=jmys2abx4co): individual calls carry distinct meanings ("scan for danger", "come here"), and the birds combine those calls into ordered sequences whose meaning depends on word order, much like human grammar.
+
+A tiny bird quietly doing real language felt like the right mascot for a tool that helps you do the same — one small sentence at a time.
+
 ## Features
 
 - **Three practice modes**
